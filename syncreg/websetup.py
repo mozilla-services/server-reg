@@ -33,22 +33,29 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
-
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
-
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
-
-
-entry_points = """
-[paste.app_factory]
-main = syncreg.wsgiapp:make_app
-
-[paste.app_install]
-main = paste.script.appinstall:Installer
 """
+Function called by :
 
-setup(name='SyncReg', version=0.1, packages=find_packages(),
-      install_requires=install_requires, entry_points=entry_points)
+    $ paster setup-app development.ini
+
+Used to initialize the DB and create some data.
+"""
+from syncreg import logger
+from syncreg.auth import WeaveAuth
+from syncreg.util import read_config
+
+
+def setup_app(command, filename, section):
+    """Called by setup-app"""
+    if '__file__' in filename:
+        config = read_config(filename['__file__'])
+    else:
+        config = dict()
+
+    # automatically creates the table if they don't exist yet
+    logger.info('Creating the DB tables if needed')
+    auth = WeaveAuth.get_from_config(config)
+
+    # create a tarek/tarek profile
+    logger.info('Adding a user')
+    auth.create_user('tarek', 'tarek', 'tarek@mozilla.com')

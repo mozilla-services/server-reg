@@ -33,22 +33,14 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
-
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
-
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
-
-
-entry_points = """
-[paste.app_factory]
-main = syncreg.wsgiapp:make_app
-
-[paste.app_install]
-main = paste.script.appinstall:Installer
 """
+Basic tests to verify that the dispatching mechanism works.
+"""
+from syncreg.tests.functional import support
 
-setup(name='SyncReg', version=0.1, packages=find_packages(),
-      install_requires=install_requires, entry_points=entry_points)
+
+class TestBasic(support.TestWsgiApp):
+
+    def test_404(self):
+        # make sure an unkown url returns a 404
+        self.app.get('/blabla', status=404)

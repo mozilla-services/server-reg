@@ -33,22 +33,18 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
-
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
-
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
-
-
-entry_points = """
-[paste.app_factory]
-main = syncreg.wsgiapp:make_app
-
-[paste.app_install]
-main = paste.script.appinstall:Installer
 """
+Basic tests to verify that the dispatching mechanism works.
+"""
+from syncreg.tests.functional import support
 
-setup(name='SyncReg', version=0.1, packages=find_packages(),
-      install_requires=install_requires, entry_points=entry_points)
+
+class TestUser(support.TestWsgiApp):
+
+    def test_file(self):
+        # make sure we can get files
+        self.app.get('/media/nothere', status=404)
+
+        res = self.app.get('/media/forgot_password.css')
+        self.assertEquals(res.headers['Content-Type'],
+                          'text/html; charset=UTF-8')

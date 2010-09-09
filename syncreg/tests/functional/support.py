@@ -33,22 +33,43 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from setuptools import setup, find_packages
-
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako', 'WebTest',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
-                    'repoze.profile']
-
-extra_requires = {'full': ['MySQL-python', 'redis', 'python-ldap']}
-
-
-entry_points = """
-[paste.app_factory]
-main = syncreg.wsgiapp:make_app
-
-[paste.app_install]
-main = paste.script.appinstall:Installer
+""" Base test class, with an instanciated app.
 """
+import os
+import unittest
 
-setup(name='SyncReg', version=0.1, packages=find_packages(),
-      install_requires=install_requires, entry_points=entry_points)
+from webtest import TestApp
+
+from syncreg.tests.support import initenv
+from syncreg.wsgiapp import make_app
+
+
+class TestWsgiApp(unittest.TestCase):
+
+    def setUp(self):
+        # loading the app
+        self.appdir, self.config, self.storage, self.auth = initenv()
+        # we don't support other storages for this test
+        assert self.storage.sqluri.split(':/')[0] in ('mysql', 'sqlite')
+        self.sqlfile = self.storage.sqluri.split('sqlite:///')[-1]
+        self.app = TestApp(make_app(self.config))
+
+        # adding a user if needed
+        self.user_id = self.auth.get_user_id('tarek')
+        if self.user_id is None:
+            self.auth.create_user('tarek', 'tarek', 'tarek@mozilla.con')
+            self.user_id = self.auth.get_user_id('tarek')
+
+    def tearDown(self):
+        self.storage.delete_storage(self.user_id)
+        self.auth.delete_user(self.user_id)
+        cef_logs = os.path.join(self.appdir, 'test_cef.log')
+        if os.path.exists(cef_logs):
+            os.remove(cef_logs)
+
+        if os.path.exists(self.sqlfile):
+            os.remove(self.sqlfile)
+        else:
+            self.auth._engine.execute('truncate users')
+            self.auth._engine.execute('truncate collections')
+            self.auth._engine.execute('truncate wbo')
