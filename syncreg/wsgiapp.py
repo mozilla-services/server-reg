@@ -48,9 +48,10 @@ from webob.dec import wsgify
 from webob.exc import HTTPNotFound, HTTPUnauthorized, HTTPBadRequest
 from webob import Response
 
+from synccore.util import authenticate_user, convert_config
+from synccore.auth import WeaveAuth
+
 from syncreg import API_VERSION
-from syncreg.util import authenticate_user, convert_config
-from syncreg.auth import WeaveAuth
 from syncreg.controllers.user import UserController
 from syncreg.controllers.static import StaticController
 

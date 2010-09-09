@@ -46,14 +46,16 @@ from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
                        HTTPInternalServerError, HTTPNotFound)
 from recaptcha.client import captcha
 
-from syncreg.util import (json_response, send_email, valid_email,
-                             valid_password, render_mako, raise_503)
-from syncreg.respcodes import (WEAVE_MISSING_PASSWORD,
-                                   WEAVE_NO_EMAIL_ADRESS,
-                                   WEAVE_INVALID_WRITE,
-                                   WEAVE_MALFORMED_JSON,
-                                   WEAVE_WEAK_PASSWORD,
-                                   WEAVE_INVALID_CAPTCHA)
+from synccore.util import (json_response, send_email, valid_email,
+                           valid_password, raise_503)
+from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
+                                WEAVE_NO_EMAIL_ADRESS,
+                                WEAVE_INVALID_WRITE,
+                                WEAVE_MALFORMED_JSON,
+                                WEAVE_WEAK_PASSWORD,
+                                WEAVE_INVALID_CAPTCHA)
+
+from syncreg.util import render_mako
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
