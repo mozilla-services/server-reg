@@ -50,9 +50,7 @@ from webob import Response
 
 from syncreg import API_VERSION
 from syncreg.util import authenticate_user, convert_config
-from syncreg.storage import WeaveStorage
 from syncreg.auth import WeaveAuth
-from syncreg.controllers.storage import StorageController
 from syncreg.controllers.user import UserController
 from syncreg.controllers.static import StaticController
 
@@ -96,12 +94,11 @@ class SyncServerApp(object):
         else:
             self.config = {}
 
-        # loading authentication and storage backends
+        # loading the authentication backends
         self.authtool = WeaveAuth.get_from_config(self.config)
-        self.storage = WeaveStorage.get_from_config(self.config)
 
         # loading and connecting controllers
-        self.controllers = {'storage': StorageController(self, self.storage),
+        self.controllers = {
                             'user': UserController(self, self.authtool),
                             'static': StaticController(self)}
 

@@ -48,10 +48,10 @@ class TestWsgiApp(unittest.TestCase):
 
     def setUp(self):
         # loading the app
-        self.appdir, self.config, self.storage, self.auth = initenv()
+        self.appdir, self.config, self.auth = initenv()
         # we don't support other storages for this test
-        assert self.storage.sqluri.split(':/')[0] in ('mysql', 'sqlite')
-        self.sqlfile = self.storage.sqluri.split('sqlite:///')[-1]
+        assert self.auth.sqluri.split(':/')[0] in ('mysql', 'sqlite')
+        self.sqlfile = self.auth.sqluri.split('sqlite:///')[-1]
         self.app = TestApp(make_app(self.config))
 
         # adding a user if needed
@@ -61,7 +61,6 @@ class TestWsgiApp(unittest.TestCase):
             self.user_id = self.auth.get_user_id('tarek')
 
     def tearDown(self):
-        self.storage.delete_storage(self.user_id)
         self.auth.delete_user(self.user_id)
         cef_logs = os.path.join(self.appdir, 'test_cef.log')
         if os.path.exists(cef_logs):

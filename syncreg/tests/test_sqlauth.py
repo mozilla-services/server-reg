@@ -49,7 +49,7 @@ WeaveAuth.register(SQLAuth)
 class TestSQLAuth(unittest.TestCase):
 
     def setUp(self):
-        self.appdir, self.config, self.storage, self.auth = initenv()
+        self.appdir, self.config, self.auth = initenv()
         # we don't support other storages for this test
         assert self.auth.sqluri.split(':/')[0] in ('mysql', 'sqlite')
 

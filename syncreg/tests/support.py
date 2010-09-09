@@ -37,7 +37,6 @@ from ConfigParser import RawConfigParser
 import os
 from logging.config import fileConfig
 
-from syncreg.storage import WeaveStorage
 from syncreg.auth import WeaveAuth
 from syncreg.util import convert_config
 import syncreg
@@ -66,6 +65,5 @@ def initenv():
 
     config = dict(cfg.items('DEFAULT') + cfg.items('app:main'))
     config = convert_config(config)
-    storage = WeaveStorage.get_from_config(config)
     auth = WeaveAuth.get_from_config(config)
-    return _TOPDIR, config, storage, auth
+    return _TOPDIR, config, auth

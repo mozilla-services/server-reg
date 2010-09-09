@@ -45,7 +45,7 @@ from sqlalchemy.sql import bindparam, select, insert, update, delete
 from syncreg.util import (validate_password, ssha256, check_reset_code,
                              generate_reset_code)
 # sharing the same table than the sql storage
-from syncreg.storage.sqlmappers import users
+from syncreg.auth.sqlmappers import users
 
 _SQLURI = 'mysql://sync:sync@localhost/sync'
 
