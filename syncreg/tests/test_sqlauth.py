@@ -51,8 +51,9 @@ class TestSQLAuth(unittest.TestCase):
     def setUp(self):
         self.appdir, self.config, self.auth = initenv()
         # we don't support other storages for this test
-        assert self.auth.sqluri.split(':/')[0] in ('mysql', 'sqlite')
-
+        self.enabled = self.auth.get_name() == 'sql'
+        if not self.enabled:
+            return
         # lets add a user tarek/tarek
         password = ssha('tarek')
         query = text('insert into users (username, password_hash, status) '
@@ -62,10 +63,12 @@ class TestSQLAuth(unittest.TestCase):
                                             ' username="tarek"').fetchone().id
 
     def tearDown(self):
+        if not self.enabled:
+            return
         self.auth._engine.execute('delete from users')
 
     def test_authenticate_user(self):
-        if self.auth.get_name() != 'sql':
+        if not self.enabled:
             # not supported yet
             return
 
@@ -73,7 +76,7 @@ class TestSQLAuth(unittest.TestCase):
         self.assertEquals(self.auth.authenticate_user('tarek', 'tarek'), 1)
 
     def test_reset_code(self):
-        if self.auth.get_name() != 'sql':
+        if not self.enabled:
             # not supported yet
             return
 
@@ -99,7 +102,7 @@ class TestSQLAuth(unittest.TestCase):
         self.assertFalse(self.auth.verify_reset_code(self.user_id, code))
 
     def test_status(self):
-        if self.auth.get_name() != 'sql':
+        if not self.enabled:
             # not supported yet
             return
         # people with status '1' are disabled
