@@ -62,9 +62,9 @@ _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
 class UserController(object):
 
-    def __init__(self, app, auth):
+    def __init__(self, app):
         self.app = app
-        self.auth = raise_503(auth)
+        self.auth = raise_503(app.authtool)
 
     def user_exists(self, request):
         exists = (self.auth.get_user_id(request.sync_info['username'])
