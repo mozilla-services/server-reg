@@ -35,5 +35,5 @@
 # ***** END LICENSE BLOCK *****
 import logging
 
-logger = logging.getLogger('weaveserver')
+logger = logging.getLogger('SyncReg')
 API_VERSION = '{api:1.0|1}'
