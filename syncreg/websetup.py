@@ -41,16 +41,13 @@ Function called by :
 Used to initialize the DB and create some data.
 """
 from syncreg import logger
-from syncreg.auth import WeaveAuth
-from syncreg.util import read_config
+from synccore.auth import WeaveAuth
+from synccore.util import convert_config
 
 
-def setup_app(command, filename, section):
+def setup_app(command, config, section):
     """Called by setup-app"""
-    if '__file__' in filename:
-        config = read_config(filename['__file__'])
-    else:
-        config = dict()
+    config = convert_config(config)
 
     # automatically creates the table if they don't exist yet
     logger.info('Creating the DB tables if needed')
