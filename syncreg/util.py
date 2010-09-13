@@ -34,6 +34,9 @@
 #
 # ***** END LICENSE BLOCK *****
 import os
+import urllib2
+import socket
+
 from mako.lookup import TemplateLookup
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
@@ -53,3 +56,49 @@ def render_mako(template, **data):
     """
     template = _lookup.get_template(template)
     return template.render(**data)
+
+def get_url(url, method='GET', user=None, password=None, timeout=5,
+            get_body=True):
+    """Performs a synchronous url call and returns the status and body.
+
+    This function is to be used to provide a gateway service.
+
+    If the url is not answering after `timeout` seconds, the function will
+    return a (504, {}, error).
+
+    If the url is not reachable at all, the function will
+    return (502, {}, error)
+
+    Other errors are managed by the urrlib2.urllopen call.
+
+    Args:
+        - url: url to visit
+        - user: user to use for Basic Auth, if needed
+        - password: password to use for Basic Auth
+        - timeout: timeout in seconds.
+        - get_body: if set to False, the body is not retrieved
+
+    Returns:
+        - tuple : status code, headers, body
+    """
+    req = urllib2.Request(url)
+    req.get_method = lambda: method
+
+    if user is not None and password is not None:
+        auth = base64.encodestring('%s:%s' % (user, password))
+        req.add_header("Authorization", "Basic %s" % auth.strip())
+    try:
+        res = urllib2.urlopen(req, timeout=timeout)
+    except urllib2.HTTPError, e:
+        return e.code, {}, str(e)
+    except urllib2.URLError, e:
+        if isinstance(e.reason, socket.timeout):
+            return 504, {}, str(e)
+        return 502, {}, str(e)
+
+    if get_body:
+        body = res.read()
+    else:
+        body = ''
+
+    return res.getcode(), dict(res.headers), body
