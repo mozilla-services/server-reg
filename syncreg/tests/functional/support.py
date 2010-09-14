@@ -49,8 +49,6 @@ class TestWsgiApp(unittest.TestCase):
     def setUp(self):
         # loading the app
         self.appdir, self.config, self.auth = initenv()
-        # we don't support other storages for this test
-        assert self.auth.sqluri.split(':/')[0] in ('mysql', 'sqlite')
         self.sqlfile = self.auth.sqluri.split('sqlite:///')[-1]
         self.app = TestApp(make_app(self.config))
 
@@ -59,6 +57,12 @@ class TestWsgiApp(unittest.TestCase):
         if self.user_id is None:
             self.auth.create_user('tarek', 'tarek', 'tarek@mozilla.con')
             self.user_id = self.auth.get_user_id('tarek')
+
+        # for the ldap backend, filling available_nodes
+        if self.auth.get_name() == 'ldap':
+            query = ('insert into available_nodes (node, ct, actives) values '
+                     ' ("weave:localhost", 10, 10)')
+            self.auth._engine.execute(query)
 
     def tearDown(self):
         self.auth.delete_user(self.user_id)
@@ -72,3 +76,5 @@ class TestWsgiApp(unittest.TestCase):
             self.auth._engine.execute('truncate users')
             self.auth._engine.execute('truncate collections')
             self.auth._engine.execute('truncate wbo')
+            if self.auth.get_name() == 'ldap':
+                self.auth._engine.execute('truncate available_nodes')

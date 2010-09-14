@@ -54,7 +54,6 @@ from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_MALFORMED_JSON,
                                 WEAVE_WEAK_PASSWORD,
                                 WEAVE_INVALID_CAPTCHA)
-
 from syncreg.util import render_mako
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
@@ -73,11 +72,13 @@ class UserController(object):
 
     def user_node(self, request):
         """Returns the storage node root for the user"""
-        # XXX the PHP Server does not send a json back here
-        # but a plain text expected by the client
-        #
-        # return json_response(request.host_url)
-        return request.host_url + '/'
+        user_id = request.sync_info['user_id']
+        location = self.auth.get_user_node(user_id)
+
+        if location is None:
+            return request.host_url + '/'
+
+        return location
 
     def password_reset(self, request):
         """Sends an e-mail for a password reset request."""
