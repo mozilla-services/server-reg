@@ -46,8 +46,8 @@ from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
                        HTTPInternalServerError, HTTPNotFound)
 from recaptcha.client import captcha
 
-from synccore.util import (json_response, send_email, valid_email,
-                           valid_password, raise_503)
+from synccore.util import (send_email, valid_email,
+                           valid_password, raise_503, text_response)
 from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
                                 WEAVE_INVALID_WRITE,
@@ -68,7 +68,7 @@ class UserController(object):
     def user_exists(self, request):
         exists = (self.auth.get_user_id(request.sync_info['username'])
                   is not None)
-        return json_response(int(exists))
+        return text_response(int(exists))
 
     def user_node(self, request):
         """Returns the storage node root for the user"""
@@ -102,7 +102,7 @@ class UserController(object):
         if not res:
             raise HTTPServiceUnavailable(msg)
 
-        return 'success'
+        return text_response('success')
 
     def create_user(self, request):
         """Creates a user."""
@@ -153,10 +153,9 @@ class UserController(object):
     def change_email(self, request):
         """Changes the user e-mail"""
         user_id = request.sync_info['user_id']
-        try:
-            email = json.loads(request.body)
-        except ValueError:
-            raise HTTPBadRequest(WEAVE_MALFORMED_JSON)
+
+        # the body is in plain text
+        email = request.body
 
         if not valid_email(email):
             raise HTTPBadRequest(WEAVE_NO_EMAIL_ADRESS)
@@ -164,7 +163,7 @@ class UserController(object):
         if not self.auth.update_email(user_id, email):
             raise HTTPInternalServerError('User update failed.')
 
-        return email
+        return text_response(email)
 
     def password_reset_form(self, request, **kw):
         """Returns a form for resetting the password"""
@@ -240,7 +239,7 @@ class UserController(object):
         """Deletes the user."""
         user_id = request.sync_info['user_id']
         res = self.auth.delete_user(user_id)
-        return json_response(res)
+        return text_response(int(res))
 
     def _captcha(self):
         """Return HTML string for inserting recaptcha into a form."""

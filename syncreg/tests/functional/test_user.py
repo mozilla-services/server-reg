@@ -228,11 +228,11 @@ class TestUser(support.TestWsgiApp):
     def test_change_email(self):
 
         # bad email
-        body = json.dumps('newemail.com')
+        body = 'newemail.com'
         self.app.post('/user/1.0/tarek/email', params=body, status=400)
 
         # good one
-        body = json.dumps('new@email.com')
+        body = 'new@email.com'
         res = self.app.post('/user/1.0/tarek/email', params=body)
         self.assertEquals(res.body, 'new@email.com')
 
