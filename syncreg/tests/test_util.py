@@ -37,7 +37,7 @@ import unittest
 import urllib2
 import socket
 
-from synccore.util import get_url
+from syncreg.util import get_url
 
 
 class TestUtil(unittest.TestCase):

@@ -36,6 +36,7 @@
 import os
 import urllib2
 import socket
+import base64
 
 from mako.lookup import TemplateLookup
 
