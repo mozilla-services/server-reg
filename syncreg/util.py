@@ -58,8 +58,8 @@ def render_mako(template, **data):
     template = _lookup.get_template(template)
     return template.render(**data)
 
-def get_url(url, method='GET', user=None, password=None, timeout=5,
-            get_body=True):
+def get_url(url, method='GET', data=None, user=None, password=None, timeout=5,
+            get_body=True, extra_headers=None):
     """Performs a synchronous url call and returns the status and body.
 
     This function is to be used to provide a gateway service.
@@ -74,20 +74,28 @@ def get_url(url, method='GET', user=None, password=None, timeout=5,
 
     Args:
         - url: url to visit
+        - method: method to use
+        - data: data to send
         - user: user to use for Basic Auth, if needed
         - password: password to use for Basic Auth
         - timeout: timeout in seconds.
+        - extra headers: mapping of headers to add
         - get_body: if set to False, the body is not retrieved
 
     Returns:
         - tuple : status code, headers, body
     """
-    req = urllib2.Request(url)
+    req = urllib2.Request(url, data=data)
     req.get_method = lambda: method
 
     if user is not None and password is not None:
         auth = base64.encodestring('%s:%s' % (user, password))
         req.add_header("Authorization", "Basic %s" % auth.strip())
+
+    if extra_headers is not None:
+        for name, value in extra_headers.items():
+            req.add_header(name, value)
+
     try:
         res = urllib2.urlopen(req, timeout=timeout)
     except urllib2.HTTPError, e:
