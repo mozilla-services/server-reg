@@ -185,9 +185,6 @@ class UserController(object):
 
     def change_email(self, request):
         """Changes the user e-mail"""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
-
         user_id = request.sync_info['user_id']
 
         # the body is in plain text
@@ -217,9 +214,6 @@ class UserController(object):
 
     def do_password_reset(self, request):
         """Do a password reset."""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
-
         user_name = request.POST.get('username')
         if request.POST.keys() == ['username']:
             # setting up a password reset
@@ -276,9 +270,6 @@ class UserController(object):
 
     def delete_user(self, request):
         """Deletes the user."""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
-
         user_id = request.sync_info['user_id']
         password = request.environ.get('USER_PASSWORD')
         res = self.auth.delete_user(user_id, password)
