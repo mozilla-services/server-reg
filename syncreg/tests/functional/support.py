@@ -54,8 +54,10 @@ class TestWsgiApp(unittest.TestCase):
 
         # adding a user if needed
         self.user_id = self.auth.get_user_id('tarek')
+        self.password = 'tarek'
+
         if self.user_id is None:
-            self.auth.create_user('tarek', 'tarek', 'tarek@mozilla.con')
+            self.auth.create_user('tarek', self.password, 'tarek@mozilla.con')
             self.user_id = self.auth.get_user_id('tarek')
 
         # for the ldap backend, filling available_nodes
@@ -65,7 +67,7 @@ class TestWsgiApp(unittest.TestCase):
             self.auth._engine.execute(query)
 
     def tearDown(self):
-        self.auth.delete_user(self.user_id)
+        self.auth.delete_user(self.user_id, self.password)
         cef_logs = os.path.join(self.appdir, 'test_cef.log')
         if os.path.exists(cef_logs):
             os.remove(cef_logs)

@@ -83,8 +83,6 @@ class TestUser(support.TestWsgiApp):
         captcha.submit = self._submit
 
     def tearDown(self):
-        super(TestUser, self).tearDown()
-
         # setting back smtp and recaptcha
         smtplib.SMTP = self.old
         captcha.submit = self.old_submit
@@ -92,7 +90,8 @@ class TestUser(support.TestWsgiApp):
             user_id = self.auth.get_user_id(user)
             if user_id is None:
                 continue
-            self.auth.delete_user(user_id)
+            self.auth.delete_user(user_id, 'x' * 9)
+        super(TestUser, self).tearDown()
 
     def _submit(self, *args, **kw):
         return FakeCaptchaResponse()
@@ -183,7 +182,7 @@ class TestUser(support.TestWsgiApp):
         res = res.form.submit()
         self.assertTrue('Password successfully changed' in res)
 
-    def test_create_user(self):
+    def test_create_user(self, new='tarek2'):
         # creating a user
 
         # the user already exists
@@ -194,35 +193,35 @@ class TestUser(support.TestWsgiApp):
         # missing the password
         payload = {'email': 'tarek@ziade.org'}
         payload = json.dumps(payload)
-        self.app.put('/user/1.0/tarek2', params=payload, status=400)
+        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
         # malformed e-mail
         payload = {'email': 'tarekziadeorg', 'password': 'x' * 9}
         payload = json.dumps(payload)
-        self.app.put('/user/1.0/tarek2', params=payload, status=400)
+        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
         # weak password
         payload = {'email': 'tarek@ziade.org', 'password': 'x'}
         payload = json.dumps(payload)
-        self.app.put('/user/1.0/tarek2', params=payload, status=400)
+        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
         # weak password #2
         payload = {'email': 'tarek@ziade.org', 'password': 'tarek2'}
         payload = json.dumps(payload)
-        self.app.put('/user/1.0/tarek2', params=payload, status=400)
+        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
         # everything is there
-        res = self.app.get('/user/1.0/tarek2')
+        res = self.app.get('/user/1.0/%s' % new)
         self.assertFalse(json.loads(res.body))
 
         payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9,
                    'captcha-challenge': 'xxx',
                    'captcha-response': 'xxx'}
         payload = json.dumps(payload)
-        res = self.app.put('/user/1.0/tarek2', params=payload)
-        self.assertEquals(res.body, 'tarek2')
+        res = self.app.put('/user/1.0/%s' % new, params=payload)
+        self.assertEquals(res.body, new)
 
-        res = self.app.get('/user/1.0/tarek2')
+        res = self.app.get('/user/1.0/%s' % new)
         self.assertTrue(json.loads(res.body))
 
     def test_change_email(self):
@@ -268,3 +267,17 @@ class TestUser(support.TestWsgiApp):
     def test_recaptcha(self):
         # make sre the captcha is rendered
         self.app.get('/misc/1.0/captcha_html', status=200)
+
+    def esting_proxy(self):
+        # XXX crazy dive into the middleware stack
+        app = self.app.app.application
+        app.config['auth.proxy'] = True
+        app.config['auth.proxy_scheme'] = 'http'
+        app.config['auth.proxy_location'] = 'localhost:5000'
+
+        # these tests should work fine with a proxy config
+        res = self.app.get('/user/1.0/randomdude')
+        if not json.loads(res.body):
+            self.app.delete('/user/1.0/randomdude')
+
+        self.test_create_user('randomdude')

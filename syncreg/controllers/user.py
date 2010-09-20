@@ -41,9 +41,12 @@ https://wiki.mozilla.org/Labs/Weave/User/1.0/API
 """
 import os
 import simplejson as json
+from urlparse import urlparse, urlunparse
 
 from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
                        HTTPInternalServerError, HTTPNotFound)
+from webob.response import Response
+
 from recaptcha.client import captcha
 
 from synccore.util import (send_email, valid_email,
@@ -54,7 +57,7 @@ from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_MALFORMED_JSON,
                                 WEAVE_WEAK_PASSWORD,
                                 WEAVE_INVALID_CAPTCHA)
-from syncreg.util import render_mako
+from syncreg.util import render_mako, get_url
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -104,8 +107,38 @@ class UserController(object):
 
         return text_response('success')
 
+    def _proxy(self, request):
+        """Proxies and return the result from the other server"""
+        parsed = urlparse(request.url)
+
+        # we want to call the same path, on another server
+        scheme = self.app.config.get('auth.proxy_scheme')
+        netloc = self.app.config.get('auth.proxy_location')
+        path = parsed.path
+        params = parsed.params
+        query = parsed.query
+        fragment = parsed.fragment
+        url = urlunparse((scheme, netloc, path, params, query, fragment))
+        method = request.method
+        data = request.body
+        if 'HTTP_X_FORWARDED_FOR' in request.headers:
+            forwarded = request.headers['HTTP_X_FORWARDED_FOR']
+        else:
+            forwarded = request.remote_addr
+
+        timeout = int(self.app.config.get('auth.proxy_timeout', 5))
+        xheaders = {'X-Forwarded-For': forwarded}
+
+        status, headers, body = get_url(url, method, data, timeout=timeout,
+                                        extra_headers=xheaders)
+
+        return Response(body, status, headers.items())
+
     def create_user(self, request):
         """Creates a user."""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_name = request.sync_info['username']
 
         if self.auth.get_user_id(user_name) is not None:
@@ -130,17 +163,17 @@ class UserController(object):
             raise HTTPBadRequest(WEAVE_WEAK_PASSWORD)
 
         # check if captcha info are provided
-        challenge = data.get('captcha-challenge')
-        response = data.get('captcha-response')
+        if self.app.config['use_captcha']:
+            challenge = data.get('captcha-challenge')
+            response = data.get('captcha-response')
 
-        if challenge is not None and response is not None:
-            resp = captcha.submit(challenge, response,
-                                  self.app.config['captcha.private_key'],
-                                  remoteip=request.remote_addr)
-            if not resp.is_valid:
-                raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
-        else:
-            if self.app.config['use_captcha']:
+            if challenge is not None and response is not None:
+                resp = captcha.submit(challenge, response,
+                                    self.app.config['captcha.private_key'],
+                                    remoteip=request.remote_addr)
+                if not resp.is_valid:
+                    raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
+            else:
                 raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
 
         # all looks good, let's create the user
@@ -152,6 +185,9 @@ class UserController(object):
 
     def change_email(self, request):
         """Changes the user e-mail"""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_id = request.sync_info['user_id']
 
         # the body is in plain text
@@ -181,6 +217,9 @@ class UserController(object):
 
     def do_password_reset(self, request):
         """Do a password reset."""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_name = request.POST.get('username')
         if request.POST.keys() == ['username']:
             # setting up a password reset
@@ -237,8 +276,12 @@ class UserController(object):
 
     def delete_user(self, request):
         """Deletes the user."""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_id = request.sync_info['user_id']
-        res = self.auth.delete_user(user_id)
+        password = request.environ.get('USER_PASSWORD')
+        res = self.auth.delete_user(user_id, password)
         return text_response(int(res))
 
     def _captcha(self):
