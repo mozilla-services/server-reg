@@ -75,6 +75,10 @@ class UserController(object):
 
     def user_node(self, request):
         """Returns the storage node root for the user"""
+        # XXX if the user has already a node, we should not proxy
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_id = request.sync_info['user_id']
         location = self.auth.get_user_node(user_id)
 
