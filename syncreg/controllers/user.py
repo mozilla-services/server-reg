@@ -167,7 +167,7 @@ class UserController(object):
             raise HTTPBadRequest(WEAVE_WEAK_PASSWORD)
 
         # check if captcha info are provided
-        if self.app.config['use_captcha']:
+        if self.app.config['captcha.use']:
             challenge = data.get('captcha-challenge')
             response = data.get('captcha-response')
 
@@ -286,7 +286,7 @@ class UserController(object):
 
     def captcha_form(self, request):
         """Renders the captcha form"""
-        if not self.app.config['use_captcha']:
+        if not self.app.config['captcha.use']:
             raise HTTPNotFound('No captcha configured')
 
         return render_mako('captcha.mako', captcha=self._captcha())

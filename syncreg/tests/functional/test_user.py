@@ -86,7 +86,7 @@ class TestUser(support.TestWsgiApp):
         # setting back smtp and recaptcha
         smtplib.SMTP = self.old
         captcha.submit = self.old_submit
-        for user in ('tarek', 'tarek2'):
+        for user in ('tarek2',):
             user_id = self.auth.get_user_id(user)
             if user_id is None:
                 continue
