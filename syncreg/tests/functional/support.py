@@ -37,6 +37,7 @@
 """
 import os
 import unittest
+import random
 
 from webtest import TestApp
 
@@ -53,12 +54,14 @@ class TestWsgiApp(unittest.TestCase):
         self.app = TestApp(make_app(self.config))
 
         # adding a user if needed
-        self.user_id = self.auth.get_user_id('tarek')
-        self.password = 'tarek'
+        self.user_name = 'test_user%d' % random.randint(1, 1000)
+        self.user_id = self.auth.get_user_id(self.user_name)
+        self.password = 'x' * 9
 
         if self.user_id is None:
-            self.auth.create_user('tarek', self.password, 'tarek@mozilla.con')
-            self.user_id = self.auth.get_user_id('tarek')
+            self.auth.create_user(self.user_name, self.password,
+                                  'tarek@mozilla.con')
+            self.user_id = self.auth.get_user_id(self.user_name)
 
         # for the ldap backend, filling available_nodes
         if self.auth.get_name() == 'ldap':

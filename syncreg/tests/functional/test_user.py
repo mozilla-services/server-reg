@@ -70,10 +70,10 @@ class TestUser(support.TestWsgiApp):
     def setUp(self):
         super(TestUser, self).setUp()
         # user auth token
-        environ = {'Authorization': 'Basic %s' % \
-                        base64.encodestring('tarek:tarek')}
+        token = base64.encodestring('%s:%s' % (self.user_name, self.password))
+        environ = {'Authorization': 'Basic %s' % token}
         self.app.extra_environ = environ
-
+        self.root = '/user/1.0/%s' % self.user_name
         # we don't want to send emails for real
         self.old = smtplib.SMTP
         smtplib.SMTP = FakeSMTP
@@ -86,11 +86,6 @@ class TestUser(support.TestWsgiApp):
         # setting back smtp and recaptcha
         smtplib.SMTP = self.old
         captcha.submit = self.old_submit
-        for user in ('tarek2',):
-            user_id = self.auth.get_user_id(user)
-            if user_id is None:
-                continue
-            self.auth.delete_user(user_id, 'x' * 9)
         super(TestUser, self).tearDown()
 
     def _submit(self, *args, **kw):
@@ -99,35 +94,35 @@ class TestUser(support.TestWsgiApp):
     def test_invalid_token(self):
         environ = {'Authorization': 'FOooo baar'}
         self.app.extra_environ = environ
-        self.app.get('/user/1.0/tarek/password_reset', status=401)
+        self.app.get(self.root + '/password_reset', status=401)
 
     def test_user_exists(self):
-        res = self.app.get('/user/1.0/tarek')
+        res = self.app.get(self.root)
         self.assertTrue(json.loads(res.body))
 
     def test_user_node(self):
-        res = self.app.get('/user/1.0/tarek/node/weave')
+        res = self.app.get(self.root + '/node/weave')
         self.assertTrue(res.body, 'http://localhost')
 
     def test_password_reset(self):
         # making sure a mail is sent
-        res = self.app.get('/user/1.0/tarek/password_reset')
+        res = self.app.get(self.root + '/password_reset')
         self.assertEquals(res.body, 'success')
         self.assertEquals(len(FakeSMTP.msgs), 1)
 
         # let's try some bad POSTs on weave-password-reset
         self.app.post('/weave-password-reset',
-                      params={'username': 'tarek',
+                      params={'username': self.user_name,
                               'boo': 'foo'}, status=400)
 
         res = self.app.post('/weave-password-reset',
-                      params={'username': 'tarek', 'key': 'xxx',
+                      params={'username': self.user_name, 'key': 'xxx',
                               'boo': 'foo'})
         self.assertTrue('Password not provided' in res)
 
         # let's ask via the web form now
         res = self.app.get('/weave-password-reset')
-        res.form['username'].value = 'tarek'
+        res.form['username'].value = self.user_name
         res = res.form.submit()
         self.assertTrue('next 6 hours' in res)
         self.assertEquals(len(FakeSMTP.msgs), 2)
@@ -138,14 +133,14 @@ class TestUser(support.TestWsgiApp):
         link = msg.split('\n')[2].strip()
 
         # let's try some bad links (unknown user)
-        badlink = link.replace('tarek', 'joe')
+        badlink = link.replace(self.user_name, 'joe')
         res = self.app.get(badlink)
         res.form['password'].value = 'p' * 8
         res.form['confirm'].value = 'p' * 8
         res = res.form.submit()
         self.assertTrue('unable to locate your account' in res)
 
-        badlink = link.replace('username=tarek&', '')
+        badlink = link.replace('username=%s&' % self.user_name, '')
         res = self.app.get(badlink)
         res.form['password'].value = 'p' * 8
         res.form['confirm'].value = 'p' * 8
@@ -188,7 +183,7 @@ class TestUser(support.TestWsgiApp):
         # the user already exists
         payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9}
         payload = json.dumps(payload)
-        self.app.put('/user/1.0/tarek', params=payload, status=400)
+        self.app.put(self.root, params=payload, status=400)
 
         # missing the password
         payload = {'email': 'tarek@ziade.org'}
@@ -224,44 +219,46 @@ class TestUser(support.TestWsgiApp):
         res = self.app.get('/user/1.0/%s' % new)
         self.assertTrue(json.loads(res.body))
 
+        self.auth.delete_user(new, 'x' * 9)
+
     def test_change_email(self):
 
         # bad email
         body = 'newemail.com'
-        self.app.post('/user/1.0/tarek/email', params=body, status=400)
+        self.app.post(self.root + '/email', params=body, status=400)
 
         # good one
         body = 'new@email.com'
-        res = self.app.post('/user/1.0/tarek/email', params=body)
+        res = self.app.post(self.root + '/email', params=body)
         self.assertEquals(res.body, 'new@email.com')
 
     def test_delete_user(self):
         # creating another user
-        res = self.app.get('/user/1.0/tarek2')
+        res = self.app.get(self.root + '2')
         if not json.loads(res.body):
             payload = {'email': 'tarek@ziade.org',
                        'password': 'x' * 9,
                        'captcha-challenge': 'xxx',
                        'captcha-response': 'xxx'}
             payload = json.dumps(payload)
-            self.app.put('/user/1.0/tarek2', params=payload)
+            self.app.put(self.root + '2', params=payload)
 
         # trying to suppress 'tarek' with 'tarek2'
         # this should generate a 401
         environ = {'Authorization': 'Basic %s' % \
                        base64.encodestring('tarek2:xxxxxxxxx')}
         self.app.extra_environ = environ
-        self.app.delete('/user/1.0/tarek', status=401)
+        self.app.delete(self.root + '', status=401)
 
         # now using the right credentials
-        environ = {'Authorization': 'Basic %s' % \
-                       base64.encodestring('tarek:tarek')}
+        token = base64.encodestring('%s:%s' % (self.user_name, self.password))
+        environ = {'Authorization': 'Basic %s' % token}
         self.app.extra_environ = environ
-        res = self.app.delete('/user/1.0/tarek')
+        res = self.app.delete(self.root)
         self.assertTrue(json.loads(res.body))
 
         # tarek should be gone
-        res = self.app.get('/user/1.0/tarek')
+        res = self.app.get(self.root + '')
         self.assertFalse(json.loads(res.body))
 
     def test_recaptcha(self):
