@@ -49,6 +49,7 @@ from webob.response import Response
 
 from recaptcha.client import captcha
 
+from synccore.cef import log_failure, PASSWD_RESET_CLR
 from synccore.util import (send_email, valid_email,
                            valid_password, raise_503, text_response)
 from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
@@ -111,6 +112,15 @@ class UserController(object):
 
         return text_response('success')
 
+    def delete_password_reset(self, request, **data):
+        """Forces a password reset clear"""
+        user_id = request.sync_info['user_id']
+        # check if captcha info are provided
+        self._check_captcha(request, data)
+        self.auth.clear_reset_code(user_id)
+        log_failure('Password Reset Cancelled', 7, request, PASSWD_RESET_CLR)
+        return text_response('success')
+
     def _proxy(self, request):
         """Proxies and return the result from the other server"""
         parsed = urlparse(request.url)
@@ -137,6 +147,23 @@ class UserController(object):
                                         extra_headers=xheaders)
 
         return Response(body, status, headers.items())
+
+    def _check_captcha(self, request, data):
+        # check if captcha info are provided
+        if not self.app.config['captcha.use']:
+            return
+
+        challenge = data.get('captcha-challenge')
+        response = data.get('captcha-response')
+
+        if challenge is not None and response is not None:
+            resp = captcha.submit(challenge, response,
+                                self.app.config['captcha.private_key'],
+                                remoteip=request.remote_addr)
+            if not resp.is_valid:
+                raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
+        else:
+            raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
 
     def create_user(self, request):
         """Creates a user."""
@@ -167,18 +194,7 @@ class UserController(object):
             raise HTTPBadRequest(WEAVE_WEAK_PASSWORD)
 
         # check if captcha info are provided
-        if self.app.config['captcha.use']:
-            challenge = data.get('captcha-challenge')
-            response = data.get('captcha-response')
-
-            if challenge is not None and response is not None:
-                resp = captcha.submit(challenge, response,
-                                    self.app.config['captcha.private_key'],
-                                    remoteip=request.remote_addr)
-                if not resp.is_valid:
-                    raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
-            else:
-                raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
+        self._check_captcha(request, data)
 
         # all looks good, let's create the user
         # XXX need to do it in routes

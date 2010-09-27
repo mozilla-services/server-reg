@@ -58,6 +58,7 @@ def render_mako(template, **data):
     template = _lookup.get_template(template)
     return template.render(**data)
 
+
 def get_url(url, method='GET', data=None, user=None, password=None, timeout=5,
             get_body=True, extra_headers=None):
     """Performs a synchronous url call and returns the status and body.

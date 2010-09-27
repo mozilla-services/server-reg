@@ -86,6 +86,7 @@ class TestUser(support.TestWsgiApp):
         # setting back smtp and recaptcha
         smtplib.SMTP = self.old
         captcha.submit = self.old_submit
+        FakeSMTP.msgs[:] = []
         super(TestUser, self).tearDown()
 
     def _submit(self, *args, **kw):
@@ -164,7 +165,10 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue('at least 8' in res)
 
         # wrong key
-        res = self.app.get(link[:-1] + 'X')
+        if link[:-1] != 'X':
+            res = self.app.get(link[:-1] + 'X')
+        else:
+            res = self.app.get(link[:-1] + 'Y')
         res.form['password'].value = 'mynewpassword'
         res.form['confirm'].value = 'mynewpassword'
         res = res.form.submit()
@@ -176,6 +180,27 @@ class TestUser(support.TestWsgiApp):
         res.form['confirm'].value = 'mynewpassword'
         res = res.form.submit()
         self.assertTrue('Password successfully changed' in res)
+
+    def test_force_reset(self):
+        res = self.app.get(self.root + '/password_reset')
+        self.assertEquals(res.body, 'success')
+        self.assertEquals(len(FakeSMTP.msgs), 1)
+
+        # let's ask via the web form now
+        res = self.app.get('/weave-password-reset')
+        res.form['username'].value = self.user_name
+        res = res.form.submit()
+        self.assertTrue('next 6 hours' in res)
+        self.assertEquals(len(FakeSMTP.msgs), 2)
+
+        # let's cancel via the API
+        url = self.root + '/password_reset'
+        app = self._get_app()
+        if app.config['captcha.use']:
+            url += '?captcha-challenge=xxx&captcha-response=xxx'
+
+        res = self.app.delete(url)
+        self.assertEquals(res.body, 'success')
 
     def test_create_user(self, new='tarek2'):
         # creating a user

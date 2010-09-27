@@ -43,6 +43,7 @@ from webtest import TestApp
 
 from syncreg.tests.support import initenv
 from syncreg.wsgiapp import make_app
+from synccore.baseapp import SyncServerApp
 
 
 class TestWsgiApp(unittest.TestCase):
@@ -83,3 +84,12 @@ class TestWsgiApp(unittest.TestCase):
             self.auth._engine.execute('truncate wbo')
             if self.auth.get_name() == 'ldap':
                 self.auth._engine.execute('truncate available_nodes')
+
+    def _get_app(self):
+        app = self.app
+        while not isinstance(app, SyncServerApp):
+            try:
+                app = app.app
+            except AttributeError:
+                app = app.application
+        return app
