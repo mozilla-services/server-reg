@@ -38,6 +38,8 @@ Basic tests to verify that the dispatching mechanism works.
 """
 import base64
 import json
+import time
+import random
 import smtplib
 from email import message_from_string
 
@@ -202,49 +204,51 @@ class TestUser(support.TestWsgiApp):
         res = self.app.delete(url)
         self.assertEquals(res.body, 'success')
 
-    def test_create_user(self, new='tarek2'):
+    def test_create_user(self):
         # creating a user
+        new = 'test_user%d%d' % (time.time(), random.randint(1, 100))
 
-        # the user already exists
-        payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9}
-        payload = json.dumps(payload)
-        self.app.put(self.root, params=payload, status=400)
+        try:
+            # the user already exists
+            payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9}
+            payload = json.dumps(payload)
+            self.app.put(self.root, params=payload, status=400)
 
-        # missing the password
-        payload = {'email': 'tarek@ziade.org'}
-        payload = json.dumps(payload)
-        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            # missing the password
+            payload = {'email': 'tarek@ziade.org'}
+            payload = json.dumps(payload)
+            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
-        # malformed e-mail
-        payload = {'email': 'tarekziadeorg', 'password': 'x' * 9}
-        payload = json.dumps(payload)
-        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            # malformed e-mail
+            payload = {'email': 'tarekziadeorg', 'password': 'x' * 9}
+            payload = json.dumps(payload)
+            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
-        # weak password
-        payload = {'email': 'tarek@ziade.org', 'password': 'x'}
-        payload = json.dumps(payload)
-        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            # weak password
+            payload = {'email': 'tarek@ziade.org', 'password': 'x'}
+            payload = json.dumps(payload)
+            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
-        # weak password #2
-        payload = {'email': 'tarek@ziade.org', 'password': 'tarek2'}
-        payload = json.dumps(payload)
-        self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            # weak password #2
+            payload = {'email': 'tarek@ziade.org', 'password': 'tarek2'}
+            payload = json.dumps(payload)
+            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
 
-        # everything is there
-        res = self.app.get('/user/1.0/%s' % new)
-        self.assertFalse(json.loads(res.body))
+            # everything is there
+            res = self.app.get('/user/1.0/%s' % new)
+            self.assertFalse(json.loads(res.body))
 
-        payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9,
-                   'captcha-challenge': 'xxx',
-                   'captcha-response': 'xxx'}
-        payload = json.dumps(payload)
-        res = self.app.put('/user/1.0/%s' % new, params=payload)
-        self.assertEquals(res.body, new)
+            payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9,
+                    'captcha-challenge': 'xxx',
+                    'captcha-response': 'xxx'}
+            payload = json.dumps(payload)
+            res = self.app.put('/user/1.0/%s' % new, params=payload)
+            self.assertEquals(res.body, new)
 
-        res = self.app.get('/user/1.0/%s' % new)
-        self.assertTrue(json.loads(res.body))
-
-        self.auth.delete_user(new, 'x' * 9)
+            res = self.app.get('/user/1.0/%s' % new)
+            self.assertTrue(json.loads(res.body))
+        finally:
+            self.auth.delete_user(new, 'x' * 9)
 
     def test_change_email(self):
 
