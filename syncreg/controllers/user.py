@@ -80,7 +80,7 @@ class UserController(object):
         if self.app.config.get('auth.proxy'):
             return self._proxy(request)
 
-        user_id = request.sync_info['user_id']
+        user_id = self.auth.get_user_id(request.sync_info['username'])
         location = self.auth.get_user_node(user_id)
 
         if location is None:
