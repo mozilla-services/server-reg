@@ -118,7 +118,8 @@ class UserController(object):
         # check if captcha info are provided
         self._check_captcha(request, data)
         self.auth.clear_reset_code(user_id)
-        log_failure('Password Reset Cancelled', 7, request, PASSWD_RESET_CLR)
+        log_failure('Password Reset Cancelled', 7, request.environ,
+                    self.app.config, PASSWD_RESET_CLR)
         return text_response('success')
 
     def _proxy(self, request):
