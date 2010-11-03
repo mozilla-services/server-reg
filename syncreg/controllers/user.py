@@ -49,7 +49,7 @@ from webob.response import Response
 
 from recaptcha.client import captcha
 
-from synccore.cef import log_failure, PASSWD_RESET_CLR
+from services.cef import log_failure, PASSWD_RESET_CLR
 from synccore.util import (send_email, valid_email,
                            valid_password, raise_503, text_response)
 from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
