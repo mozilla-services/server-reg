@@ -1,4 +1,4 @@
 recursive-include syncreg/templates *.mako
 recursive-include syncreg/static *.*
 include *.cfg *.ini *.sh
-
+recursive-include etc *
