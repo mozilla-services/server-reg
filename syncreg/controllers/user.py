@@ -50,7 +50,7 @@ from webob.response import Response
 from recaptcha.client import captcha
 
 from services.cef import log_failure, PASSWD_RESET_CLR
-from synccore.util import (send_email, valid_email,
+from synccore.util import (send_email, valid_email, HTTPJsonBadRequest,
                            valid_password, raise_503, text_response)
 from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
@@ -162,9 +162,9 @@ class UserController(object):
                                 self.app.config['captcha.private_key'],
                                 remoteip=request.remote_addr)
             if not resp.is_valid:
-                raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
+                raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
         else:
-            raise HTTPBadRequest(WEAVE_INVALID_CAPTCHA)
+            raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
 
     def create_user(self, request):
         """Creates a user."""
@@ -174,25 +174,25 @@ class UserController(object):
         user_name = request.sync_info['username']
 
         if self.auth.get_user_id(user_name) is not None:
-            raise HTTPBadRequest(WEAVE_INVALID_WRITE)
+            raise HTTPJsonBadRequest(WEAVE_INVALID_WRITE)
 
         try:
             data = json.loads(request.body)
         except ValueError:
-            raise HTTPBadRequest(WEAVE_MALFORMED_JSON)
+            raise HTTPJsonBadRequest(WEAVE_MALFORMED_JSON)
 
         # getting the e-mail
         email = data.get('email')
         if not valid_email(email):
-            raise HTTPBadRequest(WEAVE_NO_EMAIL_ADRESS)
+            raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
 
         # getting the password
         password = data.get('password')
         if password is None:
-            raise HTTPBadRequest(WEAVE_MISSING_PASSWORD)
+            raise HTTPJsonBadRequest(WEAVE_MISSING_PASSWORD)
 
         if not valid_password(user_name, password):
-            raise HTTPBadRequest(WEAVE_WEAK_PASSWORD)
+            raise HTTPJsonBadRequest(WEAVE_WEAK_PASSWORD)
 
         # check if captcha info are provided
         self._check_captcha(request, data)
@@ -212,7 +212,7 @@ class UserController(object):
         email = request.body
 
         if not valid_email(email):
-            raise HTTPBadRequest(WEAVE_NO_EMAIL_ADRESS)
+            raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
 
         if not self.auth.update_email(user_id, email):
             raise HTTPInternalServerError('User update failed.')
@@ -247,7 +247,7 @@ class UserController(object):
                 return render_mako('password_failure.mako', error=e.detail)
             else:
                 return render_mako('password_key_sent.mako')
-            raise HTTPBadRequest()
+            raise HTTPJsonBadRequest()
 
         # full form, the actual password reset
         password = request.POST.get('password')
