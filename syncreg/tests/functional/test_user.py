@@ -307,3 +307,13 @@ class TestUser(support.TestWsgiApp):
             self.app.delete('/user/1.0/randomdude')
 
         self.test_create_user('randomdude')
+
+    def test_fallback_node(self):
+        app = self.app.app.application
+        proxy = app.config['auth.fallback_node'] = 'http://myhappy/proxy/'
+        res = self.app.get('/user/1.0/tarek/node/weave')
+        self.assertEqual(res.body, proxy)
+
+        del app.config['auth.fallback_node']
+        res = self.app.get('/user/1.0/tarek/node/weave')
+        self.assertEqual(res.body, 'http://localhost/')

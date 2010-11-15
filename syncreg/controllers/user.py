@@ -84,7 +84,11 @@ class UserController(object):
         location = self.auth.get_user_node(user_id)
 
         if location is None:
-            return request.host_url + '/'
+            fallback = self.app.config.get('auth.fallback_node')
+            if fallback is None:
+                return request.host_url + '/'
+            else:
+                return fallback
 
         return location
 
