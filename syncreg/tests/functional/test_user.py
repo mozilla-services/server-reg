@@ -73,7 +73,7 @@ class TestUser(support.TestWsgiApp):
         super(TestUser, self).setUp()
         # user auth token
         token = base64.encodestring('%s:%s' % (self.user_name, self.password))
-        environ = {'Authorization': 'Basic %s' % token}
+        environ = {'HTTP_AUTHORIZATION': 'Basic %s' % token}
         self.app.extra_environ = environ
         self.root = '/user/1.0/%s' % self.user_name
         # we don't want to send emails for real
@@ -95,7 +95,7 @@ class TestUser(support.TestWsgiApp):
         return FakeCaptchaResponse()
 
     def test_invalid_token(self):
-        environ = {'Authorization': 'FOooo baar'}
+        environ = {'HTTP_AUTHORIZATION': 'FOooo baar'}
         self.app.extra_environ = environ
         self.app.get(self.root + '/password_reset', status=401)
 
@@ -274,14 +274,14 @@ class TestUser(support.TestWsgiApp):
 
         # trying to suppress 'tarek' with 'tarek2'
         # this should generate a 401
-        environ = {'Authorization': 'Basic %s' % \
+        environ = {'HTTP_AUTHORIZATION': 'Basic %s' % \
                        base64.encodestring('tarek2:xxxxxxxxx')}
         self.app.extra_environ = environ
         self.app.delete(self.root + '', status=401)
 
         # now using the right credentials
         token = base64.encodestring('%s:%s' % (self.user_name, self.password))
-        environ = {'Authorization': 'Basic %s' % token}
+        environ = {'HTTP_AUTHORIZATION': 'Basic %s' % token}
         self.app.extra_environ = environ
         res = self.app.delete(self.root)
         self.assertTrue(json.loads(res.body))
