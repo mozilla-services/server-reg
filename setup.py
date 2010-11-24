@@ -36,7 +36,7 @@
 from setuptools import setup, find_packages
 
 install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako',
-                    'recaptcha-client', 'Routes', 'simplejson', 'distribute',
+                    'recaptcha-client', 'Routes', 'simplejson',
                     'SyncCore']
 
 entry_points = """
