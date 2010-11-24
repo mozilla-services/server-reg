@@ -16,7 +16,7 @@ BuildRoot: %{_tmppath}/%{pythonname}-%{version}-%{release}-buildroot
 Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: Tarek Ziade <tarek@mozilla.com>
-Requires: nginx memcached gunicorn python26 pylibmc python26-setuptools python26-webob python26-paste python26-pastedeploy python26-synccore python26-sqlalchemy python26-mako python26-simplejson
+Requires: nginx memcached gunicorn python26 pylibmc python26-setuptools python26-webob python26-paste python26-pastedeploy python26-synccore python26-sqlalchemy python26-mako python26-simplejson python26-pastescript
 
 Url: https://hg.mozilla.org/services/server-reg
 
@@ -59,11 +59,11 @@ rm -rf $RPM_BUILD_ROOT
 %post
 touch %{_localstatedir}/log/syncreg.log
 chown nginx:nginx %{_localstatedir}/log/syncreg.log
-chmod 750 %{_localstatedir}/log/syncreg.log
+chmod 640 %{_localstatedir}/log/syncreg.log
 
 %files -f INSTALLED_FILES
 
-%attr(750, nginx, nginx) %ghost %{_localstatedir}/log/syncreg.log
+%attr(640, nginx, nginx) %ghost %{_localstatedir}/log/syncreg.log
 
 %dir %{_sysconfdir}/sync/
 
