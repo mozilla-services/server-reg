@@ -37,8 +37,8 @@ from ConfigParser import RawConfigParser
 import os
 from logging.config import fileConfig
 
-from synccore.auth import WeaveAuth
-from synccore.util import convert_config
+from services.auth import WeaveAuth
+from services.util import convert_config
 import syncreg
 
 _WEAVEDIR = os.path.dirname(syncreg.__file__)

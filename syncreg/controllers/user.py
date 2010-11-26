@@ -50,9 +50,9 @@ from webob.response import Response
 from recaptcha.client import captcha
 
 from services.cef import log_failure, PASSWD_RESET_CLR
-from synccore.util import (send_email, valid_email, HTTPJsonBadRequest,
+from services.util import (send_email, valid_email, HTTPJsonBadRequest,
                            valid_password, raise_503, text_response)
-from synccore.respcodes import (WEAVE_MISSING_PASSWORD,
+from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
                                 WEAVE_INVALID_WRITE,
                                 WEAVE_MALFORMED_JSON,

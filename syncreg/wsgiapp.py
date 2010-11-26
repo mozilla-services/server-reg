@@ -36,7 +36,7 @@
 """
 Application entry point.
 """
-from synccore.baseapp import set_app
+from services.baseapp import set_app
 
 from syncreg.controllers.user import UserController
 from syncreg.controllers.static import StaticController
