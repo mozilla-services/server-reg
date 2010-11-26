@@ -296,8 +296,7 @@ class UserController(object):
     def delete_user(self, request):
         """Deletes the user."""
         user_id = request.sync_info['user_id']
-        password = request.environ.get('USER_PASSWORD')
-        res = self.auth.delete_user(user_id, password)
+        res = self.auth.delete_user(user_id, request.user_password)
         return text_response(int(res))
 
     def _captcha(self):
