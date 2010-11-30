@@ -41,23 +41,24 @@ from services.baseapp import set_app
 from syncreg.controllers.user import UserController
 from syncreg.controllers.static import StaticController
 
-urls = [('GET', '/user/_API_/_USERNAME_', 'user', 'user_exists', False),
-        ('PUT', '/user/_API_/_USERNAME_', 'user', 'create_user', False),
-        ('DELETE', '/user/_API_/_USERNAME_', 'user', 'delete_user', True),
-        ('GET', '/user/_API_/_USERNAME_/node/weave', 'user', 'user_node',
-         False),
+
+_EXTRAS = {'auth': True}
+
+urls = [('GET', '/user/_API_/_USERNAME_', 'user', 'user_exists'),
+        ('PUT', '/user/_API_/_USERNAME_', 'user', 'create_user'),
+        ('DELETE', '/user/_API_/_USERNAME_', 'user', 'delete_user', _EXTRAS),
+        ('GET', '/user/_API_/_USERNAME_/node/weave', 'user', 'user_node'),
         ('GET', '/user/_API_/_USERNAME_/password_reset', 'user',
-         'password_reset', True),
+         'password_reset', _EXTRAS),
         ('DELETE', '/user/_API_/_USERNAME_/password_reset', 'user',
-         'delete_password_reset', True),
+         'delete_password_reset', _EXTRAS),
         ('POST', '/user/_API_/_USERNAME_/email', 'user', 'change_email',
-         True),
-        ('GET', '/weave-password-reset', 'user', 'password_reset_form', False),
-        ('POST', '/weave-password-reset', 'user', 'do_password_reset', False),
-        (('GET', 'POST'), '/misc/_API_/captcha_html', 'user', 'captcha_form',
-         False),
+         _EXTRAS),
+        ('GET', '/weave-password-reset', 'user', 'password_reset_form'),
+        ('POST', '/weave-password-reset', 'user', 'do_password_reset'),
+        (('GET', 'POST'), '/misc/_API_/captcha_html', 'user', 'captcha_form'),
         # media   XXX served by Apache in real production
-        ('GET', '/media/{filename}', 'static', 'get_file', False)]
+        ('GET', '/media/{filename}', 'static', 'get_file')]
 
 
 controllers = {'user': UserController, 'static': StaticController}
