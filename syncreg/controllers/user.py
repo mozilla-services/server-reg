@@ -67,7 +67,7 @@ class UserController(object):
 
     def __init__(self, app):
         self.app = app
-        self.auth = raise_503(app.authtool)
+        self.auth = raise_503(app.auth.backend)
 
     def user_exists(self, request):
         exists = (self.auth.get_user_id(request.sync_info['username'])
