@@ -44,19 +44,30 @@ from syncreg.controllers.static import StaticController
 
 _EXTRAS = {'auth': True}
 
-urls = [('GET', '/user/_API_/_USERNAME_', 'user', 'user_exists'),
-        ('PUT', '/user/_API_/_USERNAME_', 'user', 'create_user'),
-        ('DELETE', '/user/_API_/_USERNAME_', 'user', 'delete_user', _EXTRAS),
-        ('GET', '/user/_API_/_USERNAME_/node/weave', 'user', 'user_node'),
-        ('GET', '/user/_API_/_USERNAME_/password_reset', 'user',
+
+def _url(url):
+    for pattern, replacer in (('_API_', '{api:1.0|1}'),
+                              ('_USERNAME_',
+                               '{username:[a-zA-Z0-9._-]+}')):
+        url = url.replace(pattern, replacer)
+    return url
+
+
+urls = [('GET', _url('/user/_API_/_USERNAME_'), 'user', 'user_exists'),
+        ('PUT', _url('/user/_API_/_USERNAME_'), 'user', 'create_user'),
+        ('DELETE', _url('/user/_API_/_USERNAME_'), 'user', 'delete_user',
+         _EXTRAS),
+        ('GET', _url('/user/_API_/_USERNAME_/node/weave'), 'user', 'user_node'),
+        ('GET', _url('/user/_API_/_USERNAME_/password_reset'), 'user',
          'password_reset', _EXTRAS),
-        ('DELETE', '/user/_API_/_USERNAME_/password_reset', 'user',
+        ('DELETE', _url('/user/_API_/_USERNAME_/password_reset'), 'user',
          'delete_password_reset', _EXTRAS),
-        ('POST', '/user/_API_/_USERNAME_/email', 'user', 'change_email',
+        ('POST', _url('/user/_API_/_USERNAME_/email'), 'user', 'change_email',
          _EXTRAS),
         ('GET', '/weave-password-reset', 'user', 'password_reset_form'),
         ('POST', '/weave-password-reset', 'user', 'do_password_reset'),
-        (('GET', 'POST'), '/misc/_API_/captcha_html', 'user', 'captcha_form'),
+        (('GET', 'POST'), _url('/misc/_API_/captcha_html'), 'user',
+         'captcha_form'),
         # media   XXX served by Apache in real production
         ('GET', '/media/{filename}', 'static', 'get_file')]
 
