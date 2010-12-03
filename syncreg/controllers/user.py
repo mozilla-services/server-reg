@@ -70,8 +70,8 @@ class UserController(object):
         self.auth = raise_503(app.auth.backend)
 
     def user_exists(self, request):
-        exists = (self.auth.get_user_id(request.sync_info['username'])
-                  is not None)
+        user_name = request.sync_info['username']
+        exists = self._user_exists(user_name)
         return text_response(int(exists))
 
     def user_node(self, request):
@@ -170,14 +170,20 @@ class UserController(object):
         else:
             raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
 
+    def _user_exists(self, user_name):
+       user_id = self.auth.get_user_id(user_name)
+       if user_id is None:
+           return False
+       cn, __ = self.auth.get_user_info(user_id)
+       return cn is not None
+
     def create_user(self, request):
         """Creates a user."""
         if self.app.config.get('auth.proxy'):
             return self._proxy(request)
 
         user_name = request.sync_info['username']
-
-        if self.auth.get_user_id(user_name) is not None:
+        if self._user_exists(user_name):
             raise HTTPJsonBadRequest(WEAVE_INVALID_WRITE)
 
         try:
