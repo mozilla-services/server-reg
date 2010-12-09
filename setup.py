@@ -48,4 +48,5 @@ main = paste.script.appinstall:Installer
 """
 
 setup(name='SyncReg', version=0.1, packages=find_packages(),
-      install_requires=install_requires, entry_points=entry_points)
+      install_requires=install_requires, entry_points=entry_points,
+      package_data={'syncreg': ['templates/*.mako']})
