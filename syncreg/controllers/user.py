@@ -51,7 +51,7 @@ from recaptcha.client import captcha
 
 from services.cef import log_failure, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, raise_503, text_response)
+                           valid_password, text_response)
 from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
                                 WEAVE_INVALID_WRITE,
@@ -67,7 +67,7 @@ class UserController(object):
 
     def __init__(self, app):
         self.app = app
-        self.auth = raise_503(app.auth.backend)
+        self.auth = app.auth.backend
 
     def user_exists(self, request):
         user_name = request.sync_info['username']
