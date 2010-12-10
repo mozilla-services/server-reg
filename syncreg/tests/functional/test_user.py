@@ -46,7 +46,7 @@ from email import message_from_string
 from recaptcha.client import captcha
 
 from syncreg.tests.functional import support
-
+from services.tests.support import get_app
 
 class FakeSMTP(object):
 
@@ -197,7 +197,7 @@ class TestUser(support.TestWsgiApp):
 
         # let's cancel via the API
         url = self.root + '/password_reset'
-        app = self._get_app()
+        app = get_app(self.app)
         if app.config['captcha.use']:
             url += '?captcha-challenge=xxx&captcha-response=xxx'
 
@@ -296,7 +296,7 @@ class TestUser(support.TestWsgiApp):
 
     def esting_proxy(self):
         # XXX crazy dive into the middleware stack
-        app = self.app.app.application
+        app = get_app(self.app)
         app.config['auth.proxy'] = True
         app.config['auth.proxy_scheme'] = 'http'
         app.config['auth.proxy_location'] = 'localhost:5000'
@@ -309,7 +309,7 @@ class TestUser(support.TestWsgiApp):
         self.test_create_user('randomdude')
 
     def test_fallback_node(self):
-        app = self.app.app.application
+        app = get_app(self.app)
         proxy = app.config['auth.fallback_node'] = 'http://myhappy/proxy/'
         res = self.app.get('/user/1.0/tarek/node/weave')
         self.assertEqual(res.body, proxy)
