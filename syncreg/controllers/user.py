@@ -51,14 +51,14 @@ from recaptcha.client import captcha
 
 from services.cef import log_failure, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, text_response)
+                           valid_password, text_response, get_url, proxy)
 from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
                                 WEAVE_INVALID_WRITE,
                                 WEAVE_MALFORMED_JSON,
                                 WEAVE_WEAK_PASSWORD,
                                 WEAVE_INVALID_CAPTCHA)
-from syncreg.util import render_mako, get_url
+from syncreg.util import render_mako
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -128,30 +128,10 @@ class UserController(object):
 
     def _proxy(self, request):
         """Proxies and return the result from the other server"""
-        parsed = urlparse(request.url)
-
-        # we want to call the same path, on another server
         scheme = self.app.config.get('auth.proxy_scheme')
         netloc = self.app.config.get('auth.proxy_location')
-        path = parsed.path
-        params = parsed.params
-        query = parsed.query
-        fragment = parsed.fragment
-        url = urlunparse((scheme, netloc, path, params, query, fragment))
-        method = request.method
-        data = request.body
-        if 'HTTP_X_FORWARDED_FOR' in request.headers:
-            forwarded = request.headers['HTTP_X_FORWARDED_FOR']
-        else:
-            forwarded = request.remote_addr
-
         timeout = int(self.app.config.get('auth.proxy_timeout', 5))
-        xheaders = {'X-Forwarded-For': forwarded}
-
-        status, headers, body = get_url(url, method, data, timeout=timeout,
-                                        extra_headers=xheaders)
-
-        return Response(body, status, headers.items())
+        return proxy(request, scheme, netloc, timeout)
 
     def _check_captcha(self, request, data):
         # check if captcha info are provided
