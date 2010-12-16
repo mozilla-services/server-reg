@@ -51,7 +51,8 @@ from recaptcha.client import captcha
 
 from services.cef import log_failure, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, text_response, get_url, proxy)
+                           valid_password, text_response, get_url, proxy,
+                           extract_username)
 from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
                                 WEAVE_INVALID_WRITE,
@@ -226,9 +227,11 @@ class UserController(object):
     def do_password_reset(self, request):
         """Do a password reset."""
         user_name = request.POST.get('username')
+        if user_name is not None:
+            user_name = extract_username(user_name)
+
         if request.POST.keys() == ['username']:
             # setting up a password reset
-            user_name = request.POST['username']
             user_id = self.auth.get_user_id(user_name)
             request.sync_info['user_id'] = user_id
             try:

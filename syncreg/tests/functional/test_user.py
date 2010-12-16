@@ -47,6 +47,8 @@ from recaptcha.client import captcha
 
 from syncreg.tests.functional import support
 from services.tests.support import get_app
+from services.util import extract_username
+
 
 class FakeSMTP(object):
 
@@ -177,6 +179,30 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue('Key does not match with username' in res)
 
         # all good
+        res = self.app.get(link)
+        res.form['password'].value = 'mynewpassword'
+        res.form['confirm'].value = 'mynewpassword'
+        res = res.form.submit()
+        self.assertTrue('Password successfully changed' in res)
+
+    def test_reset_email(self):
+        # let's try the reset process with an email
+        user_name = extract_username('tarek@mozilla.com')
+        self.auth.create_user(user_name, self.password,
+                              'tarek@mozilla.con')
+
+        res = self.app.get('/weave-password-reset')
+        res.form['username'].value = 'tarek@mozilla.com'
+        res = res.form.submit()
+        self.assertTrue('next 6 hours' in res)
+        self.assertEquals(len(FakeSMTP.msgs), 1)
+
+        # let's visit the link in the email
+        msg = message_from_string(FakeSMTP.msgs[0][2]).get_payload()
+        msg = base64.decodestring(msg)
+        link = msg.split('\n')[2].strip()
+
+        # let's call the real link, it's a form we can fill
         res = self.app.get(link)
         res.form['password'].value = 'mynewpassword'
         res.form['confirm'].value = 'mynewpassword'
