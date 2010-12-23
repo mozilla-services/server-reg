@@ -210,6 +210,25 @@ class UserController(object):
 
         return text_response(email)
 
+    def change_password(self, request):
+        """Changes the user e-mail"""
+        user_name = request.sync_info['username']
+        user_id = request.sync_info['user_id']
+
+        # the body is in plain text
+        password = request.body
+
+        if not valid_password(user_name, password):
+            raise HTTPBadRequest('Password should be at least 8 '
+                               'characters and not the same as your username')
+
+        # everything looks fine
+        if not self.auth.update_password(user_id, password):
+            raise HTTPInternalServerError('Password change failed '
+                                          'unexpectedly.')
+
+        return text_response('success')
+
     def password_reset_form(self, request, **kw):
         """Returns a form for resetting the password"""
         if 'key' in kw:
@@ -285,6 +304,8 @@ class UserController(object):
     def delete_user(self, request):
         """Deletes the user."""
         user_id = request.sync_info['user_id']
+        if not hasattr(request, 'user_password'):
+            raise HTTPBadRequest()
         res = self.auth.delete_user(user_id, request.user_password)
         return text_response(int(res))
 

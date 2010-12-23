@@ -64,6 +64,10 @@ urls = [('GET', _url('/user/_API_/_USERNAME_'), 'user', 'user_exists'),
          'delete_password_reset', _EXTRAS),
         ('POST', _url('/user/_API_/_USERNAME_/email'), 'user', 'change_email',
          _EXTRAS),
+        ('POST', _url('/user/_API_/_USERNAME_/password'), 'user',
+         'change_password', _EXTRAS),
+
+        # UI
         ('GET', '/weave-password-reset', 'user', 'password_reset_form'),
         ('POST', '/weave-password-reset', 'user', 'do_password_reset'),
         (('GET', 'POST'), _url('/misc/_API_/captcha_html'), 'user',
