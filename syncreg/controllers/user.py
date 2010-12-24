@@ -214,7 +214,10 @@ class UserController(object):
         return text_response(email)
 
     def change_password(self, request):
-        """Changes the user e-mail"""
+        """Changes the user's password"""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_name = request.sync_info['username']
         user_id = request.sync_info['user_id']
 
