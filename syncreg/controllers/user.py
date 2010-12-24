@@ -197,6 +197,9 @@ class UserController(object):
 
     def change_email(self, request):
         """Changes the user e-mail"""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_id = request.sync_info['user_id']
 
         # the body is in plain text
