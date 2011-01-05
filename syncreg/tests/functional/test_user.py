@@ -290,9 +290,14 @@ class TestUser(support.TestWsgiApp):
         body = 'newpasswordhere'
         res = self.app.post(self.root + '/password', params=body)
         self.assertEquals(res.body, 'success')
-
-        body = 'short'
-        self.app.post(self.root + '/password', params=body, status=400)
+        token = base64.encodestring('%s:%s' % (self.user_name, body))
+        environ = {'HTTP_AUTHORIZATION': 'Basic %s' % token}
+        self.app.extra_environ = environ
+        self.app.post(self.root + '/password', params='short', status=400)
+        self.app.post(self.root + '/password', params=self.password)
+        token = base64.encodestring('%s:%s' % (self.user_name, self.password))
+        environ = {'HTTP_AUTHORIZATION': 'Basic %s' % token}
+        self.app.extra_environ = environ
 
     def test_delete_user(self):
         # creating another user
