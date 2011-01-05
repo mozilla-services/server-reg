@@ -277,7 +277,6 @@ class TestUser(support.TestWsgiApp):
             self.auth.delete_user(new, 'x' * 9)
 
     def test_change_email(self):
-
         # bad email
         body = 'newemail.com'
         self.app.post(self.root + '/email', params=body, status=400)
@@ -286,6 +285,11 @@ class TestUser(support.TestWsgiApp):
         body = 'new@email.com'
         res = self.app.post(self.root + '/email', params=body)
         self.assertEquals(res.body, 'new@email.com')
+
+    def test_change_password(self):
+        body = 'newpass'
+        res = self.app.post(self.root + '/password', params=body)
+        self.assertEquals(res.body, 'success')
 
     def test_delete_user(self):
         # creating another user

@@ -197,9 +197,6 @@ class UserController(object):
 
     def change_email(self, request):
         """Changes the user e-mail"""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
-
         user_id = request.sync_info['user_id']
 
         # the body is in plain text
@@ -208,23 +205,26 @@ class UserController(object):
         if not valid_email(email):
             raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
 
-        if not self.auth.update_email(user_id, email):
+        if not hasattr(request, 'user_password'):
+            raise HTTPBadRequest()
+
+        if not self.auth.update_email(user_id, email, request.user_password):
             raise HTTPInternalServerError('User update failed.')
 
         return text_response(email)
 
     def change_password(self, request):
         """Changes the user's password"""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
-
         user_name = request.sync_info['username']
         user_id = request.sync_info['user_id']
 
         # the body is in plain text
         password = request.body
 
-        if not valid_password(user_name, password):
+        if not hasattr(request, 'user_password'):
+            raise HTTPBadRequest()
+
+        if not valid_password(user_name, password, request.user_password):
             raise HTTPBadRequest('Password should be at least 8 '
                                'characters and not the same as your username')
 
