@@ -287,9 +287,12 @@ class TestUser(support.TestWsgiApp):
         self.assertEquals(res.body, 'new@email.com')
 
     def test_change_password(self):
-        body = 'newpass'
+        body = 'newpasswordhere'
         res = self.app.post(self.root + '/password', params=body)
         self.assertEquals(res.body, 'success')
+
+        body = 'short'
+        self.app.post(self.root + '/password', params=body, status=400)
 
     def test_delete_user(self):
         # creating another user
