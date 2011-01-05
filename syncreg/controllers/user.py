@@ -49,6 +49,7 @@ from webob.response import Response
 
 from recaptcha.client import captcha
 
+from services import logger
 from services.cef import log_failure, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
                            valid_password, text_response, get_url, proxy,
@@ -81,7 +82,12 @@ class UserController(object):
         if self.app.config.get('auth.proxy'):
             return self._proxy(request)
 
-        user_id = self.auth.get_user_id(request.sync_info['username'])
+        user_name = request.sync_info['username']
+        user_id = self.auth.get_user_id(user_name)
+        if user_id is None:
+            logger.debug('Could not get the user id for %s' % user_name)
+            raise HTTPServiceUnavailable()
+
         location = self.auth.get_user_node(user_id)
 
         if location is None:
@@ -224,12 +230,13 @@ class UserController(object):
         if not hasattr(request, 'user_password'):
             raise HTTPBadRequest()
 
-        if not valid_password(user_name, password, request.user_password):
+        if not valid_password(user_name, password):
             raise HTTPBadRequest('Password should be at least 8 '
                                'characters and not the same as your username')
 
         # everything looks fine
-        if not self.auth.update_password(user_id, password):
+        if not self.auth.update_password(user_id, password,
+                                         request.user_password):
             raise HTTPInternalServerError('Password change failed '
                                           'unexpectedly.')
 

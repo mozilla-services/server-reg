@@ -341,9 +341,22 @@ class TestUser(support.TestWsgiApp):
     def test_fallback_node(self):
         app = get_app(self.app)
         proxy = app.config['auth.fallback_node'] = 'http://myhappy/proxy/'
-        res = self.app.get('/user/1.0/tarek/node/weave')
+        url = '/user/1.0/%s/node/weave' % self.user_name
+        res = self.app.get(url)
         self.assertEqual(res.body, proxy)
 
         del app.config['auth.fallback_node']
-        res = self.app.get('/user/1.0/tarek/node/weave')
+        res = self.app.get(url)
         self.assertEqual(res.body, 'http://localhost/')
+
+    def test_prevent_bad_node(self):
+        app = get_app(self.app)
+        old_auth = app.auth.backend.get_user_id
+        def _get_id(*args):
+            return None
+        app.auth.backend.get_user_id = _get_id
+        try:
+            self.app.get('/user/1.0/%s/node/weave' % self.user_name,
+                         status=503)
+        finally:
+            app.auth.backend.get_user_id = old_auth
