@@ -17,6 +17,7 @@ Prefix: %{_prefix}
 BuildArch: noarch
 Vendor: Tarek Ziade <tarek@mozilla.com>
 Requires: nginx memcached gunicorn python26 python26-memcached python26-setuptools python26-webob python26-paste python26-pastedeploy python26-services python26-sqlalchemy python26-mako python26-simplejson python26-pastescript python26-recaptcha-client
+Conflicts: python26-syncstorage
 
 Url: https://hg.mozilla.org/services/server-reg
 
