@@ -59,6 +59,7 @@ from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_INVALID_WRITE,
                                 WEAVE_MALFORMED_JSON,
                                 WEAVE_WEAK_PASSWORD,
+                                WEAVE_INVALID_USER,
                                 WEAVE_INVALID_CAPTCHA)
 from syncreg.util import render_mako
 
@@ -99,11 +100,23 @@ class UserController(object):
 
         return location
 
-    def password_reset(self, request):
+    def password_reset(self, request, **data):
         """Sends an e-mail for a password reset request."""
-        user_id = request.sync_info['user_id']
+        user_name = request.sync_info['username']
+        user_id = self.auth.get_user_id(user_name)
+        if user_id is None:
+            # user not found
+            raise HTTPJsonBadRequest(WEAVE_INVALID_USER)
+
+        __, user_email = self.auth.get_user_info(user_id)
+        if user_email is None:
+            raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
+
+        self._check_captcha(request, data)
+
+        # the request looks fine, let's generate the reset code
         code = self.auth.generate_reset_code(user_id)
-        user_name, user_email = self.auth.get_user_info(user_id)
+
         data = {'host': request.host_url, 'user_name': user_name,
                 'code': code}
         body = render_mako('password_reset_mail.mako', **data)
@@ -129,7 +142,8 @@ class UserController(object):
         # check if captcha info are provided
         self._check_captcha(request, data)
         self.auth.clear_reset_code(user_id)
-        log_failure('Password Reset Cancelled', 7, request.environ,
+        log_failure('Password Reset Cancelled', 7,
+                    request.environ,
                     self.app.config, PASSWD_RESET_CLR)
         return text_response('success')
 
@@ -150,8 +164,8 @@ class UserController(object):
 
         if challenge is not None and response is not None:
             resp = captcha.submit(challenge, response,
-                                self.app.config['captcha.private_key'],
-                                remoteip=request.remote_addr)
+                                  self.app.config['captcha.private_key'],
+                                  remoteip=request.remote_addr)
             if not resp.is_valid:
                 raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
         else:
@@ -264,14 +278,15 @@ class UserController(object):
 
         if request.POST.keys() == ['username']:
             # setting up a password reset
-            user_id = self.auth.get_user_id(user_name)
-            request.sync_info['user_id'] = user_id
+            # XXX add support for captcha here via **data
+            request.sync_info['username'] = user_name
             try:
                 self.password_reset(request)
-            except HTTPServiceUnavailable, e:
+            except (HTTPServiceUnavailable, HTTPJsonBadRequest), e:
                 return render_mako('password_failure.mako', error=e.detail)
             else:
                 return render_mako('password_key_sent.mako')
+
             raise HTTPJsonBadRequest()
 
         # full form, the actual password reset

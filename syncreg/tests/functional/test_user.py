@@ -43,11 +43,13 @@ import random
 import smtplib
 from email import message_from_string
 
+from webtest import AppError
 from recaptcha.client import captcha
 
 from syncreg.tests.functional import support
 from services.tests.support import get_app
 from services.util import extract_username
+from services.respcodes import WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS
 
 
 class FakeSMTP(object):
@@ -96,11 +98,6 @@ class TestUser(support.TestWsgiApp):
     def _submit(self, *args, **kw):
         return FakeCaptchaResponse()
 
-    def test_invalid_token(self):
-        environ = {'HTTP_AUTHORIZATION': 'FOooo baar'}
-        self.app.extra_environ = environ
-        self.app.get(self.root + '/password_reset', status=401)
-
     def test_user_exists(self):
         res = self.app.get(self.root)
         self.assertTrue(json.loads(res.body))
@@ -109,9 +106,43 @@ class TestUser(support.TestWsgiApp):
         res = self.app.get(self.root + '/node/weave')
         self.assertTrue(res.body, 'http://localhost')
 
+    def test_password_reset_direct(self):
+        # trying to call password reset with an unknown user
+        captcha = 'captcha-challenge=x&captcha-response=y'
+        try:
+            self.app.get('/user/1.0/a/password_reset?%s' % captcha)
+        except AppError, e:
+            self.assertTrue(e.args[0].endswith(str(WEAVE_INVALID_USER)))
+        else:
+            raise AssertionError()
+
+        # now calling with the right user, but he has no email
+        app = get_app(self.app)
+        def _get_user_info(*args):
+            return 'ok', None
+        old = app.auth.backend.get_user_info
+        app.auth.backend.get_user_info = _get_user_info
+
+        try:
+            self.app.get(self.root + '/password_reset?%s' % captcha)
+        except AppError, e:
+            self.assertTrue(e.args[0].endswith(str(WEAVE_NO_EMAIL_ADRESS)))
+        else:
+            raise AssertionError()
+        finally:
+            app.auth.backend.get_user_info = old
+
+
+        # now a legitimate call
+        res = self.app.get(self.root + '/password_reset?%s' % captcha)
+        self.assertEqual(res.body, 'success')
+
     def test_password_reset(self):
         # making sure a mail is sent
-        res = self.app.get(self.root + '/password_reset')
+        captcha = 'captcha-challenge=x&captcha-response=y'
+
+
+        res = self.app.get(self.root + '/password_reset?%s' % captcha)
         self.assertEquals(res.body, 'success')
         self.assertEquals(len(FakeSMTP.msgs), 1)
 
@@ -126,11 +157,18 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue('Password not provided' in res)
 
         # let's ask via the web form now
-        res = self.app.get('/weave-password-reset')
-        res.form['username'].value = self.user_name
-        res = res.form.submit()
-        self.assertTrue('next 6 hours' in res)
-        self.assertEquals(len(FakeSMTP.msgs), 2)
+        app = get_app(self.app)
+        # the Python web form does not support captcha
+        old = app.config['captcha.use']
+        app.config['captcha.use'] = False
+        try:
+            res = self.app.get('/weave-password-reset')
+            res.form['username'].value = self.user_name
+            res = res.form.submit()
+            self.assertTrue('next 6 hours' in res)
+            self.assertEquals(len(FakeSMTP.msgs), 2)
+        finally:
+            app.config['captcha.use'] = old
 
         # let's visit the link in the email
         msg = message_from_string(FakeSMTP.msgs[1][2]).get_payload()
@@ -186,44 +224,61 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue('Password successfully changed' in res)
 
     def test_reset_email(self):
-        # let's try the reset process with an email
-        user_name = extract_username('tarek@mozilla.com')
-        self.auth.create_user(user_name, self.password,
-                              'tarek@mozilla.con')
+        app = get_app(self.app)
+        # let's ask via the web form now
+        # the Python web form does not support captcha
+        old = app.config['captcha.use']
+        app.config['captcha.use'] = False
+        try:
+            # let's try the reset process with an email
+            user_name = extract_username('tarek@mozilla.com')
+            self.auth.create_user(user_name, self.password,
+                                'tarek@mozilla.con')
 
-        res = self.app.get('/weave-password-reset')
-        res.form['username'].value = 'tarek@mozilla.com'
-        res = res.form.submit()
-        self.assertTrue('next 6 hours' in res)
-        self.assertEquals(len(FakeSMTP.msgs), 1)
+            res = self.app.get('/weave-password-reset')
+            res.form['username'].value = 'tarek@mozilla.com'
+            res = res.form.submit()
+            self.assertTrue('next 6 hours' in res)
+            self.assertEquals(len(FakeSMTP.msgs), 1)
 
-        # let's visit the link in the email
-        msg = message_from_string(FakeSMTP.msgs[0][2]).get_payload()
-        msg = base64.decodestring(msg)
-        link = msg.split('\n')[2].strip()
+            # let's visit the link in the email
+            msg = message_from_string(FakeSMTP.msgs[0][2]).get_payload()
+            msg = base64.decodestring(msg)
+            link = msg.split('\n')[2].strip()
 
-        # let's call the real link, it's a form we can fill
-        res = self.app.get(link)
-        res.form['password'].value = 'mynewpassword'
-        res.form['confirm'].value = 'mynewpassword'
-        res = res.form.submit()
-        self.assertTrue('Password successfully changed' in res)
+            # let's call the real link, it's a form we can fill
+            res = self.app.get(link)
+            res.form['password'].value = 'mynewpassword'
+            res.form['confirm'].value = 'mynewpassword'
+            res = res.form.submit()
+            self.assertTrue('Password successfully changed' in res)
+        finally:
+            app.config['captcha.use'] = old
 
     def test_force_reset(self):
-        res = self.app.get(self.root + '/password_reset')
+        captcha = 'captcha-challenge=x&captcha-response=y'
+        res = self.app.get(self.root + '/password_reset?%s' % captcha)
         self.assertEquals(res.body, 'success')
         self.assertEquals(len(FakeSMTP.msgs), 1)
 
+        app = get_app(self.app)
+
         # let's ask via the web form now
-        res = self.app.get('/weave-password-reset')
-        res.form['username'].value = self.user_name
-        res = res.form.submit()
-        self.assertTrue('next 6 hours' in res)
-        self.assertEquals(len(FakeSMTP.msgs), 2)
+        # the Python web form does not support captcha
+        old = app.config['captcha.use']
+        app.config['captcha.use'] = False
+        try:
+            res = self.app.get('/weave-password-reset')
+            res.form['username'].value = self.user_name
+            res = res.form.submit()
+            self.assertTrue('next 6 hours' in res)
+            self.assertEquals(len(FakeSMTP.msgs), 2)
+        finally:
+            app.config['captcha.use'] = old
+
 
         # let's cancel via the API
         url = self.root + '/password_reset'
-        app = get_app(self.app)
         if app.config['captcha.use']:
             url += '?captcha-challenge=xxx&captcha-response=xxx'
 
