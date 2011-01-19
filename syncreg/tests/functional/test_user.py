@@ -48,7 +48,7 @@ from recaptcha.client import captcha
 
 from syncreg.tests.functional import support
 from services.tests.support import get_app
-from services.util import extract_username
+from services.util import extract_username, BackendError
 from services.respcodes import WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS
 
 
@@ -416,10 +416,15 @@ class TestUser(support.TestWsgiApp):
         app = get_app(self.app)
         old_auth = app.auth.backend.get_user_id
         def _get_id(*args):
-            return None
+            raise BackendError()
+
         app.auth.backend.get_user_id = _get_id
         try:
             self.app.get('/user/1.0/%s/node/weave' % self.user_name,
                          status=503)
         finally:
             app.auth.backend.get_user_id = old_auth
+
+    def test_unkown_user_node(self):
+        # make sure asking for a node of an unexisting user leads to a 404
+        self.app.get('/user/1.0/__xx__/weave/node', status=404)

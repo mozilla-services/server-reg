@@ -87,7 +87,7 @@ class UserController(object):
         user_id = self.auth.get_user_id(user_name)
         if user_id is None:
             logger.debug('Could not get the user id for %s' % user_name)
-            raise HTTPServiceUnavailable()
+            raise HTTPNotFound()
 
         location = self.auth.get_user_node(user_id)
 
