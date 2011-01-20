@@ -331,9 +331,13 @@ class UserController(object):
 
     def delete_user(self, request):
         """Deletes the user."""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_id = request.sync_info['user_id']
         if not hasattr(request, 'user_password'):
             raise HTTPBadRequest()
+
         res = self.auth.delete_user(user_id, request.user_password)
         return text_response(int(res))
 
