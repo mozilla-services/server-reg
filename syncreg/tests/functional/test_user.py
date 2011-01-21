@@ -428,3 +428,28 @@ class TestUser(support.TestWsgiApp):
     def test_unkown_user_node(self):
         # make sure asking for a node of an unexisting user leads to a 404
         self.app.get('/user/1.0/__xx__/weave/node', status=404)
+
+    def test_change_password_with_header(self):
+        body = 'newpasswordhere'
+
+        # unknown user
+        extra = [('X-Weave-Password-Reset', 'key')]
+        self.app.post('/user/1.0/_xx_/password', params=body,
+                      headers=extra, status=404)
+
+        # bad key
+        extra = {'X-Weave-Password-Reset': 'key'}
+        res = self.app.post(self.root + '/password', params=body,
+                            headers=extra, status=400)
+        self.assertEquals(res.body, '10')
+
+        # let's create a valid key
+        backend = get_app(self.app).auth.backend
+        user_id = backend.get_user_id(self.user_name)
+
+        key = backend.generate_reset_code(user_id)
+
+        extra = {'X-Weave-Password-Reset': key}
+        res = self.app.post(self.root + '/password', params=body,
+                            headers=extra)
+        self.assertEqual(res.body, 'success')

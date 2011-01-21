@@ -44,7 +44,8 @@ import simplejson as json
 from urlparse import urlparse, urlunparse
 
 from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
-                       HTTPInternalServerError, HTTPNotFound)
+                       HTTPInternalServerError, HTTPNotFound,
+                       HTTPUnauthorized)
 from webob.response import Response
 
 from recaptcha.client import captcha
@@ -60,6 +61,7 @@ from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_MALFORMED_JSON,
                                 WEAVE_WEAK_PASSWORD,
                                 WEAVE_INVALID_USER,
+                                WEAVE_INVALID_RESET_CODE,
                                 WEAVE_INVALID_CAPTCHA)
 from syncreg.util import render_mako
 
@@ -102,6 +104,9 @@ class UserController(object):
 
     def password_reset(self, request, **data):
         """Sends an e-mail for a password reset request."""
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_name = request.sync_info['username']
         user_id = self.auth.get_user_id(user_name)
         if user_id is None:
@@ -234,23 +239,63 @@ class UserController(object):
         return text_response(email)
 
     def change_password(self, request):
-        """Changes the user's password"""
+        """Changes the user's password
+
+        Takes a classical authentication or a reset code
+        """
+        if self.app.config.get('auth.proxy'):
+            return self._proxy(request)
+
         user_name = request.sync_info['username']
-        user_id = request.sync_info['user_id']
+        key = request.headers.get('X-Weave-Password-Reset')
+
+        if key is not None:
+            user_id = self.auth.get_user_id(user_name)
+
+            if user_id is None:
+                raise HTTPNotFound()
+
+            if not self.auth.verify_reset_code(user_id, key):
+                log_failure('Invalid Reset Code Submitted', 5,
+                            request.environ, self.app.config,
+                            suser=user_name, submitedtoken=key)
+
+                raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
+            extra = {}
+        else:
+            # classical auth
+            user_id = self.app.auth.authenticate_user(request,
+                                                      self.app.config,
+                                                      user_name)
+            if user_id is None:
+                user_id = self.auth.get_user_id(user_name)
+                if user_id is None:
+                    # user does not exists
+                    raise HTTPNotFound()
+
+                # user exists but bad password
+                log_failure('Authentication Failed', 5, environ, config,
+                            suser=user_name)
+
+                raise HTTPUnauthorized()
+
+            if not hasattr(request, 'user_password'):
+                raise HTTPBadRequest()
+
+            extra = {'old_password': request.user_password}
+
+        request.sync_info['user_id'] = user_id
 
         # the body is in plain text
         password = request.body
 
-        if not hasattr(request, 'user_password'):
-            raise HTTPBadRequest()
-
         if not valid_password(user_name, password):
             raise HTTPBadRequest('Password should be at least 8 '
-                               'characters and not the same as your username')
+                                 'characters and not the same as your '
+                                 'username')
 
         # everything looks fine
-        if not self.auth.update_password(user_id, password,
-                                         request.user_password):
+        if not self.auth.update_password(user_id, password, **extra):
             raise HTTPInternalServerError('Password change failed '
                                           'unexpectedly.')
 
