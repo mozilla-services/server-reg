@@ -51,7 +51,7 @@ from webob.response import Response
 from recaptcha.client import captcha
 
 from services import logger
-from services.cef import log_failure, PASSWD_RESET_CLR
+from services.cef import log_cef, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
                            valid_password, text_response, get_url, proxy,
                            extract_username)
@@ -147,9 +147,9 @@ class UserController(object):
         # check if captcha info are provided
         self._check_captcha(request, data)
         self.auth.clear_reset_code(user_id)
-        log_failure('Password Reset Cancelled', 7,
-                    request.environ,
-                    self.app.config, PASSWD_RESET_CLR)
+        log_cef('Password Reset Cancelled', 7, request.environ,
+                self.app.config, username=request.sync_info['username'],
+                signature=PASSWD_RESET_CLR)
         return text_response('success')
 
     def _proxy(self, request):
@@ -256,9 +256,9 @@ class UserController(object):
                 raise HTTPNotFound()
 
             if not self.auth.verify_reset_code(user_id, key):
-                log_failure('Invalid Reset Code Submitted', 5,
-                            request.environ, self.app.config,
-                            suser=user_name, submitedtoken=key)
+                log_cef('Invalid Reset Code Submitted', 5,
+                        request.environ, self.app.config,
+                        suser=user_name, submitedtoken=key)
 
                 raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
             extra = {}
@@ -274,8 +274,8 @@ class UserController(object):
                     raise HTTPNotFound()
 
                 # user exists but bad password
-                log_failure('Authentication Failed', 5, environ, config,
-                            suser=user_name)
+                log_cef('Authentication Failed', 5, environ, config,
+                        suser=user_name)
 
                 raise HTTPUnauthorized()
 
