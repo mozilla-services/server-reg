@@ -384,8 +384,11 @@ class TestUser(support.TestWsgiApp):
         self.assertFalse(json.loads(res.body))
 
     def test_recaptcha(self):
-        # make sre the captcha is rendered
-        self.app.get('/misc/1.0/captcha_html', status=200)
+        # make sure the captcha is rendered when needed
+        if not get_app(self.app).config['captcha.use']:
+            self.app.get('/misc/1.0/captcha_html', status=404)
+        else:
+            self.app.get('/misc/1.0/captcha_html', status=200)
 
     def esting_proxy(self):
         # XXX crazy dive into the middleware stack

@@ -84,7 +84,6 @@ class UserController(object):
         # XXX if the user has already a node, we should not proxy
         if self.app.config.get('auth.proxy'):
             return self._proxy(request)
-
         user_name = request.sync_info['username']
         user_id = self.auth.get_user_id(user_name)
         if user_id is None:
@@ -104,6 +103,7 @@ class UserController(object):
 
     def password_reset(self, request, **data):
         """Sends an e-mail for a password reset request."""
+
         if self.app.config.get('auth.proxy'):
             return self._proxy(request)
 
@@ -187,7 +187,6 @@ class UserController(object):
         """Creates a user."""
         if self.app.config.get('auth.proxy'):
             return self._proxy(request)
-
         user_name = request.sync_info['username']
         if self._user_exists(user_name):
             raise HTTPJsonBadRequest(WEAVE_INVALID_WRITE)
@@ -261,7 +260,7 @@ class UserController(object):
                         suser=user_name, submitedtoken=key)
 
                 raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
-            extra = {}
+            extra = {'key': key}
         else:
             # classical auth
             user_id = self.app.auth.authenticate_user(request,
@@ -303,12 +302,13 @@ class UserController(object):
 
     def password_reset_form(self, request, **kw):
         """Returns a form for resetting the password"""
-        if 'key' in kw:
+        if 'key' in kw or 'error' in kw:
             # we have a key, let's display the key controlling form
             return render_mako('password_reset_form.mako', **kw)
         elif not request.POST and not request.GET:
             # asking for the first time
             return render_mako('password_ask_reset_form.mako')
+
         raise HTTPBadRequest()
 
     def _repost(self, request, error):
@@ -339,6 +339,9 @@ class UserController(object):
         confirm = request.POST.get('confirm')
         key = request.POST.get('key')
 
+        if key is None:
+            raise HTTPJsonBadRequest()
+
         if user_name is None:
             return self._repost(request,
                                 'Username not provided. Please check '
@@ -367,7 +370,8 @@ class UserController(object):
                                 'Please request a new key.')
 
         # everything looks fine
-        if not self.auth.update_password(user_id, password):
+        if not self.auth.update_password(user_id, password, key=key):
+            self.auth.update_password(user_id, password, key=key)
             return self._repost(request, 'Password change failed '
                                 'unexpectedly.')
 
