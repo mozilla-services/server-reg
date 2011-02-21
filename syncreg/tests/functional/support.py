@@ -43,7 +43,6 @@ from webtest import TestApp
 
 from syncreg.tests.support import initenv
 from syncreg.wsgiapp import make_app
-from services.baseapp import SyncServerApp
 
 
 class TestWsgiApp(unittest.TestCase):

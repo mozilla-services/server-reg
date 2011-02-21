@@ -118,8 +118,10 @@ class TestUser(support.TestWsgiApp):
 
         # now calling with the right user, but he has no email
         app = get_app(self.app)
+
         def _get_user_info(*args):
             return 'ok', None
+
         old = app.auth.backend.get_user_info
         app.auth.backend.get_user_info = _get_user_info
 
@@ -132,7 +134,6 @@ class TestUser(support.TestWsgiApp):
         finally:
             app.auth.backend.get_user_info = old
 
-
         # now a legitimate call
         res = self.app.get(self.root + '/password_reset?%s' % captcha)
         self.assertEqual(res.body, 'success')
@@ -140,8 +141,6 @@ class TestUser(support.TestWsgiApp):
     def test_password_reset(self):
         # making sure a mail is sent
         captcha = 'captcha-challenge=x&captcha-response=y'
-
-
         res = self.app.get(self.root + '/password_reset?%s' % captcha)
         self.assertEquals(res.body, 'success')
         self.assertEquals(len(FakeSMTP.msgs), 1)
@@ -275,7 +274,6 @@ class TestUser(support.TestWsgiApp):
             self.assertEquals(len(FakeSMTP.msgs), 2)
         finally:
             app.config['captcha.use'] = old
-
 
         # let's cancel via the API
         url = self.root + '/password_reset'
@@ -418,6 +416,7 @@ class TestUser(support.TestWsgiApp):
     def test_prevent_bad_node(self):
         app = get_app(self.app)
         old_auth = app.auth.backend.get_user_id
+
         def _get_id(*args):
             raise BackendError()
 

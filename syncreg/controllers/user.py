@@ -41,19 +41,17 @@ https://wiki.mozilla.org/Labs/Weave/User/1.0/API
 """
 import os
 import simplejson as json
-from urlparse import urlparse, urlunparse
 
 from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
                        HTTPInternalServerError, HTTPNotFound,
                        HTTPUnauthorized)
-from webob.response import Response
 
 from recaptcha.client import captcha
 
 from services import logger
 from services.cef import log_cef, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, text_response, get_url, proxy,
+                           valid_password, text_response, proxy,
                            extract_username)
 from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
@@ -177,11 +175,11 @@ class UserController(object):
             raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
 
     def _user_exists(self, user_name):
-       user_id = self.auth.get_user_id(user_name)
-       if user_id is None:
-           return False
-       cn, __ = self.auth.get_user_info(user_id)
-       return cn is not None
+        user_id = self.auth.get_user_id(user_name)
+        if user_id is None:
+            return False
+        cn, __ = self.auth.get_user_info(user_id)
+        return cn is not None
 
     def create_user(self, request):
         """Creates a user."""
@@ -273,8 +271,8 @@ class UserController(object):
                     raise HTTPNotFound()
 
                 # user exists but bad password
-                log_cef('Authentication Failed', 5, environ, config,
-                        suser=user_name)
+                log_cef('Authentication Failed', 5, request.environ,
+                        self.app.config, suser=user_name)
 
                 raise HTTPUnauthorized()
 
