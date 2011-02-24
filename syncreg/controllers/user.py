@@ -47,9 +47,9 @@ from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
                        HTTPUnauthorized)
 
 from recaptcha.client import captcha
+from cef import log_cef, PASSWD_RESET_CLR
 
 from services import logger
-from services.cef import log_cef, PASSWD_RESET_CLR
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
                            valid_password, text_response, proxy,
                            extract_username)

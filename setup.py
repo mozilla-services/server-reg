@@ -37,7 +37,7 @@ from setuptools import setup, find_packages
 
 install_requires = ['SQLALchemy==0.6.6', 'PasteDeploy', 'WebOb', 'Mako',
                     'recaptcha-client', 'Routes', 'simplejson',
-                    'Services']
+                    'Services', 'cef']
 
 entry_points = """
 [paste.app_factory]
