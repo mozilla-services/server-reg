@@ -51,7 +51,7 @@ from cef import log_cef, PASSWD_RESET_CLR
 
 from services import logger
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, text_response, proxy,
+                           valid_password, text_response,
                            extract_username)
 from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
@@ -80,8 +80,6 @@ class UserController(object):
     def user_node(self, request):
         """Returns the storage node root for the user"""
         # XXX if the user has already a node, we should not proxy
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
         user_name = request.sync_info['username']
         user_id = self.auth.get_user_id(user_name)
         if user_id is None:
@@ -101,9 +99,6 @@ class UserController(object):
 
     def password_reset(self, request, **data):
         """Sends an e-mail for a password reset request."""
-
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
 
         user_name = request.sync_info['username']
         user_id = self.auth.get_user_id(user_name)
@@ -150,13 +145,6 @@ class UserController(object):
                 signature=PASSWD_RESET_CLR)
         return text_response('success')
 
-    def _proxy(self, request):
-        """Proxies and return the result from the other server"""
-        scheme = self.app.config.get('auth.proxy_scheme')
-        netloc = self.app.config.get('auth.proxy_location')
-        timeout = int(self.app.config.get('auth.proxy_timeout', 5))
-        return proxy(request, scheme, netloc, timeout)
-
     def _check_captcha(self, request, data):
         # check if captcha info are provided
         if not self.app.config['captcha.use']:
@@ -183,8 +171,6 @@ class UserController(object):
 
     def create_user(self, request):
         """Creates a user."""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
         user_name = request.sync_info['username']
         if self._user_exists(user_name):
             raise HTTPJsonBadRequest(WEAVE_INVALID_WRITE)
@@ -240,8 +226,6 @@ class UserController(object):
 
         Takes a classical authentication or a reset code
         """
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
 
         user_name = request.sync_info['username']
         key = request.headers.get('X-Weave-Password-Reset')
@@ -378,8 +362,6 @@ class UserController(object):
 
     def delete_user(self, request):
         """Deletes the user."""
-        if self.app.config.get('auth.proxy'):
-            return self._proxy(request)
 
         user_id = request.sync_info['user_id']
         if not hasattr(request, 'user_password'):
