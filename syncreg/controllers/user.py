@@ -226,11 +226,11 @@ class UserController(object):
 
         Takes a classical authentication or a reset code
         """
-
         user_name = request.sync_info['username']
         key = request.headers.get('X-Weave-Password-Reset')
 
         if key is not None:
+            admin_update = True
             user_id = self.auth.get_user_id(user_name)
 
             if user_id is None:
@@ -242,8 +242,9 @@ class UserController(object):
                         suser=user_name, submitedtoken=key)
 
                 raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
-            extra = {'key': key}
         else:
+            admin_update = False
+
             # classical auth
             user_id = self.app.auth.authenticate_user(request,
                                                       self.app.config,
@@ -263,7 +264,7 @@ class UserController(object):
             if not hasattr(request, 'user_password'):
                 raise HTTPBadRequest()
 
-            extra = {'old_password': request.user_password}
+            key = request.user_password
 
         request.sync_info['user_id'] = user_id
 
@@ -276,7 +277,12 @@ class UserController(object):
                                  'username')
 
         # everything looks fine
-        if not self.auth.update_password(user_id, password, **extra):
+        if admin_update:
+            update_func = self.auth.admin_update_password
+        else:
+            update_func = self.auth.update_password
+
+        if not update_func(user_id, password, key):
             raise HTTPInternalServerError('Password change failed '
                                           'unexpectedly.')
 
@@ -352,8 +358,7 @@ class UserController(object):
                                 'Please request a new key.')
 
         # everything looks fine
-        if not self.auth.update_password(user_id, password, key=key):
-            self.auth.update_password(user_id, password, key=key)
+        if not self.auth.admin_update_password(user_id, password, key):
             return self._repost(request, 'Password change failed '
                                 'unexpectedly.')
 
