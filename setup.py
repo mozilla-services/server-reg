@@ -35,7 +35,7 @@
 # ***** END LICENSE BLOCK *****
 from setuptools import setup, find_packages
 
-install_requires = ['SQLALchemy==0.6.6', 'PasteDeploy', 'WebOb', 'Mako',
+install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako',
                     'recaptcha-client', 'Routes', 'simplejson',
                     'Services', 'cef']
 
@@ -47,6 +47,6 @@ main = syncreg.wsgiapp:make_app
 main = paste.script.appinstall:Installer
 """
 
-setup(name='SyncReg', version=0.1, packages=find_packages(),
+setup(name='SyncReg', version='0.2', packages=find_packages(),
       install_requires=install_requires, entry_points=entry_points,
       package_data={'syncreg': ['templates/*.mako']})
