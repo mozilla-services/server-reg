@@ -49,6 +49,7 @@ build_rpms:
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms sqlalchemy --version=0.6.6
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms mysql-python --version=1.2.3
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms wsgiproxy --version=0.2.2
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms recaptcha-client
 
 mach: build build_rpms
 	mach clean
