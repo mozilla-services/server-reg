@@ -39,22 +39,24 @@ from logging.config import fileConfig
 
 from services.auth import get_auth
 from services.util import convert_config
-import syncreg
 
-_WEAVEDIR = os.path.dirname(syncreg.__file__)
-_TOPDIR = os.path.split(_WEAVEDIR)[0]
+
+_DIR = os.path.dirname(__file__)
+
 
 while True:
     if 'WEAVE_TESTFILE' in os.environ:
-        _INI_FILE = os.path.join(_TOPDIR, 'tests_%s.ini' % \
+        _INI_FILE = os.path.join(_DIR, 'tests_%s.ini' % \
                                  os.environ['WEAVE_TESTFILE'])
     else:
-        _INI_FILE = os.path.join(_TOPDIR, 'tests.ini')
+        _INI_FILE = os.path.join(_DIR, 'tests.ini')
 
     if os.path.exists(_INI_FILE):
         break
 
-    _TOPDIR = os.path.split(_TOPDIR)[0]
+    _DIR = os.path.split(_DIR)[0]
+    if _DIR == '/':
+        raise IOError("could not find a test ini")
 
 
 def initenv():
@@ -75,4 +77,4 @@ def initenv():
                   cfg.items('DEFAULT') + cfg.items('app:main')])
     config = convert_config(config)
     auth = get_auth(config)
-    return _TOPDIR, config, auth
+    return _DIR, config, auth
