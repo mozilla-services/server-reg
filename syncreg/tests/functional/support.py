@@ -43,6 +43,7 @@ from webtest import TestApp
 
 from syncreg.tests.support import initenv
 from syncreg.wsgiapp import make_app
+from services.util import extract_username
 
 
 class TestWsgiApp(unittest.TestCase):
@@ -54,13 +55,13 @@ class TestWsgiApp(unittest.TestCase):
         self.app = TestApp(make_app(self.config))
 
         # adding a user if needed
-        self.user_name = 'test_user%d' % random.randint(1, 1000)
+        self.email = 'test_user%d@mozilla.com' % random.randint(1, 1000)
+        self.user_name = extract_username(self.email)
         self.user_id = self.auth.get_user_id(self.user_name)
         self.password = 'x' * 9
 
         if self.user_id is None:
-            self.auth.create_user(self.user_name, self.password,
-                                  'tarek@mozilla.con')
+            self.auth.create_user(self.user_name, self.password, self.email)
             self.user_id = self.auth.get_user_id(self.user_name)
 
         # for the ldap backend, filling available_nodes

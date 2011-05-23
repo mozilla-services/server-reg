@@ -60,7 +60,9 @@ from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_WEAK_PASSWORD,
                                 WEAVE_INVALID_USER,
                                 WEAVE_INVALID_RESET_CODE,
-                                WEAVE_INVALID_CAPTCHA)
+                                WEAVE_INVALID_CAPTCHA,
+                                WEAVE_USERNAME_EMAIL_MISMATCH)
+
 from syncreg.util import render_mako
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
@@ -71,6 +73,7 @@ class UserController(object):
     def __init__(self, app):
         self.app = app
         self.auth = app.auth.backend
+        self.strict_usernames = app.config.get('auth.strict_usernames', True)
 
     def user_exists(self, request):
         user_name = request.sync_info['username']
@@ -184,6 +187,11 @@ class UserController(object):
         email = data.get('email')
         if not valid_email(email):
             raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
+
+        # checking that the e-mail matches the username
+        munged_email = extract_username(email)
+        if munged_email != user_name and self.strict_usernames:
+            raise HTTPJsonBadRequest(WEAVE_USERNAME_EMAIL_MISMATCH)
 
         # getting the password
         password = data.get('password')

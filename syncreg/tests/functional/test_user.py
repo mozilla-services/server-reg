@@ -49,7 +49,8 @@ from recaptcha.client import captcha
 from syncreg.tests.functional import support
 from services.tests.support import get_app
 from services.util import extract_username, BackendError
-from services.respcodes import WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS
+from services.respcodes import (WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS,
+                                WEAVE_USERNAME_EMAIL_MISMATCH)
 
 
 class FakeSMTP(object):
@@ -232,7 +233,7 @@ class TestUser(support.TestWsgiApp):
             # let's try the reset process with an email
             user_name = extract_username('tarek@mozilla.com')
             self.auth.create_user(user_name, self.password,
-                                'tarek@mozilla.con')
+                                  'tarek@mozilla.con')
 
             res = self.app.get('/weave-password-reset')
             res.form['username'].value = 'tarek@mozilla.com'
@@ -285,49 +286,57 @@ class TestUser(support.TestWsgiApp):
 
     def test_create_user(self):
         # creating a user
-        new = 'test_user%d%d' % (time.time(), random.randint(1, 100))
+        email = 'test_user%d%d@moz.com' % (time.time(),
+                                           random.randint(1, 100))
+        name = extract_username(email)
+        user_url = '/user/1.0/%s' % name
 
         try:
             # the user already exists
-            payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9}
+            payload = {'email': email, 'password': 'x' * 9}
             payload = json.dumps(payload)
             self.app.put(self.root, params=payload, status=400)
 
             # missing the password
-            payload = {'email': 'tarek@ziade.org'}
+            payload = {'email': email}
             payload = json.dumps(payload)
-            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            self.app.put(user_url, params=payload, status=400)
 
             # malformed e-mail
-            payload = {'email': 'tarekziadeorg', 'password': 'x' * 9}
+            payload = {'email': 'bademailhere', 'password': 'x' * 9}
             payload = json.dumps(payload)
-            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            self.app.put(user_url, params=payload, status=400)
 
             # weak password
-            payload = {'email': 'tarek@ziade.org', 'password': 'x'}
+            payload = {'email': email, 'password': 'x'}
             payload = json.dumps(payload)
-            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            self.app.put(user_url, params=payload, status=400)
 
             # weak password #2
-            payload = {'email': 'tarek@ziade.org', 'password': 'tarek2'}
+            payload = {'email': email, 'password': 'tarek2'}
             payload = json.dumps(payload)
-            self.app.put('/user/1.0/%s' % new, params=payload, status=400)
+            self.app.put(user_url, params=payload, status=400)
+
+            # the user name does not match the email
+            payload = {'email': 'another-valid@email.com', 'password': 'x' * 9}
+            payload = json.dumps(payload)
+            res = self.app.put(user_url, params=payload, status=400)
+            self.assertEquals(res.json, WEAVE_USERNAME_EMAIL_MISMATCH)
 
             # everything is there
-            res = self.app.get('/user/1.0/%s' % new)
+            res = self.app.get(user_url)
             self.assertFalse(json.loads(res.body))
+            payload = {'email': email, 'password': 'x' * 9,
+                       'captcha-challenge': 'xxx', 'captcha-response': 'xxx'}
 
-            payload = {'email': 'tarek@ziade.org', 'password': 'x' * 9,
-                    'captcha-challenge': 'xxx',
-                    'captcha-response': 'xxx'}
             payload = json.dumps(payload)
-            res = self.app.put('/user/1.0/%s' % new, params=payload)
-            self.assertEquals(res.body, new)
+            res = self.app.put(user_url, params=payload)
+            self.assertEquals(res.body, name)
 
-            res = self.app.get('/user/1.0/%s' % new)
+            res = self.app.get(user_url)
             self.assertTrue(json.loads(res.body))
         finally:
-            self.auth.delete_user(new, 'x' * 9)
+            self.auth.delete_user(name, 'x' * 9)
 
     def test_non_ascii_password(self):
         # creating a user
@@ -376,21 +385,25 @@ class TestUser(support.TestWsgiApp):
 
     def test_delete_user(self):
         # creating another user
-        res = self.app.get(self.root + '2')
+        email = 'tarek@ziade.org'
+        user = extract_username(email)
+        root = '/user/1.0/%s' % user
+
+        res = self.app.get(root)
         if not json.loads(res.body):
             payload = {'email': 'tarek@ziade.org',
                        'password': 'x' * 9,
                        'captcha-challenge': 'xxx',
                        'captcha-response': 'xxx'}
             payload = json.dumps(payload)
-            self.app.put(self.root + '2', params=payload)
+            self.app.put(root, params=payload)
 
-        # trying to suppress 'tarek' with 'tarek2'
+        # trying to suppress the old user with the new user
         # this should generate a 401
         environ = {'HTTP_AUTHORIZATION': 'Basic %s' % \
-                       base64.encodestring('tarek2:xxxxxxxxx')}
+                    base64.encodestring('%s:xxxxxxxxx' % user)}
         self.app.extra_environ = environ
-        self.app.delete(self.root + '', status=401)
+        self.app.delete(self.root, status=401)
 
         # now using the right credentials
         token = base64.encodestring('%s:%s' % (self.user_name, self.password))
@@ -400,7 +413,7 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue(json.loads(res.body))
 
         # tarek should be gone
-        res = self.app.get(self.root + '')
+        res = self.app.get(self.root)
         self.assertFalse(json.loads(res.body))
 
     def test_recaptcha(self):
