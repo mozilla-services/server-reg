@@ -329,6 +329,28 @@ class TestUser(support.TestWsgiApp):
         finally:
             self.auth.delete_user(new, 'x' * 9)
 
+    def test_non_ascii_password(self):
+        # creating a user
+        email = 'again%d%d@here.com' % (time.time(), random.randint(1, 100))
+        user = extract_username(email)
+        password = u'\xe9' * 9
+        user_url = '/user/1.0/%s' % user
+
+        payload = {'email': email, 'password': password,
+                   'captcha-challenge': 'xxx',
+                   'captcha-response': 'xxx'}
+        payload = json.dumps(payload)
+        res = self.app.put(user_url, params=payload)
+        self.assertEquals(res.body, user)
+
+        token = base64.encodestring('%s:%s' % (user, password.encode('utf8')))
+        environ = {'HTTP_AUTHORIZATION': 'Basic %s' % token}
+        self.app.extra_environ = environ
+        self.app.delete(user_url)
+
+        res = self.app.get(user_url)
+        self.assertFalse(json.loads(res.body))
+
     def test_change_email(self):
         # bad email
         body = 'newemail.com'
