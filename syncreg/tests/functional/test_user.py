@@ -105,7 +105,7 @@ class TestUser(support.TestWsgiApp):
 
     def test_user_node(self):
         res = self.app.get(self.root + '/node/weave')
-        self.assertTrue(res.body, 'http://localhost')
+        self.assertTrue(res.body, 'null')
 
     def test_password_reset_direct(self):
         # trying to call password reset with an unknown user
@@ -446,7 +446,7 @@ class TestUser(support.TestWsgiApp):
 
         del app.config['auth.fallback_node']
         res = self.app.get(url)
-        self.assertEqual(res.body, 'http://localhost/')
+        self.assertEqual(res.body, 'null')
 
     def test_prevent_bad_node(self):
         app = get_app(self.app)

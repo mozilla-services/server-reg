@@ -51,8 +51,8 @@ from cef import log_cef, PASSWD_RESET_CLR
 
 from services import logger
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, text_response,
-                           extract_username)
+                           valid_password, text_response, BackendError,
+                           extract_username, json_response)
 from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_NO_EMAIL_ADRESS,
                                 WEAVE_INVALID_WRITE,
@@ -62,8 +62,9 @@ from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_INVALID_RESET_CODE,
                                 WEAVE_INVALID_CAPTCHA,
                                 WEAVE_USERNAME_EMAIL_MISMATCH)
-
+from services.auth import NodeAttributionError
 from syncreg.util import render_mako
+
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -82,21 +83,30 @@ class UserController(object):
 
     def user_node(self, request):
         """Returns the storage node root for the user"""
-        # XXX if the user has already a node, we should not proxy
+        # warning:
+        # the client expects a string body not a json body
+        # except when the node is 'null'
         user_name = request.sync_info['username']
         user_id = self.auth.get_user_id(user_name)
         if user_id is None:
             logger.debug('Could not get the user id for %s' % user_name)
             raise HTTPNotFound()
 
-        location = self.auth.get_user_node(user_id)
+        try:
+            location = self.auth.get_user_node(user_id)
+        except (NodeAttributionError, BackendError):
+            # this happens when the back end failed to get a node
+            return json_response(None)
 
         if location is None:
             fallback = self.app.config.get('auth.fallback_node')
-            if fallback is None:
-                return request.host_url + '/'
-            else:
+            if fallback is not None:
+                if not fallback.endswith('/'):
+                    # the client expects an ending /
+                    fallback += '/'
                 return fallback
+            else:
+                return json_response(None)
 
         return location
 
