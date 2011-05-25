@@ -35,7 +35,7 @@
 # ***** END LICENSE BLOCK *****
 from setuptools import setup, find_packages
 
-install_requires = ['SQLALchemy', 'PasteDeploy', 'WebOb', 'Mako',
+install_requires = ['SQLALchemy<=0.6.99', 'PasteDeploy', 'WebOb', 'Mako',
                     'recaptcha-client', 'Routes', 'simplejson',
                     'Services', 'cef']
 
