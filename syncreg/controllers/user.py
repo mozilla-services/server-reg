@@ -289,9 +289,6 @@ class UserController(object):
         # the body is in plain text utf8 string
         password = request.body.decode('utf8')
 
-        # it's a string we need to decode in utf-8
-        password = password.decode('utf-8')
-
         if not valid_password(user_name, password):
             raise HTTPBadRequest('Password should be at least 8 '
                                  'characters and not the same as your '
