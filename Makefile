@@ -10,6 +10,8 @@ COVERAGE = bin/coverage
 PYLINT = bin/pylint
 PKGS = syncreg
 PYPI2RPM = bin/pypi2rpm.py
+BUILDAPP = bin/buildapp
+
 
 .PHONY: all build test build_rpms mach
 
@@ -17,7 +19,8 @@ all:	build
 
 build:
 	$(VIRTUALENV) --no-site-packages --distribute .
-	$(PYTHON) build.py $(APPNAME) $(DEPS)
+	$(EZ) -U MoPyTools
+	$(BUILDAPP) $(APPNAME) $(DEPS)
 	$(EZ) nose
 	$(EZ) WebTest
 	$(EZ) Funkload
