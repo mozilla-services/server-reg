@@ -1,7 +1,7 @@
 %define name python26-syncreg
 %define pythonname SyncReg
-%define version 0.3
-%define unmangled_version 0.3
+%define version 0.4
+%define unmangled_version 0.4
 %define release 1
 
 Summary: Sync Reg server
