@@ -47,6 +47,6 @@ main = syncreg.wsgiapp:make_app
 main = paste.script.appinstall:Installer
 """
 
-setup(name='SyncReg', version='0.4', packages=find_packages(),
+setup(name='SyncReg', version='0.5', packages=find_packages(),
       install_requires=install_requires, entry_points=entry_points,
       package_data={'syncreg': ['templates/*.mako']})
