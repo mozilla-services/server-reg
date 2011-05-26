@@ -287,7 +287,7 @@ class UserController(object):
         request.sync_info['user_id'] = user_id
 
         # the body is in plain text utf8 string
-        password = request.body.encode('utf8')
+        password = request.body.decode('utf8')
 
         if not valid_password(user_name, password):
             raise HTTPBadRequest('Password should be at least 8 '
