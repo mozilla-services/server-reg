@@ -75,6 +75,7 @@ class UserController(object):
         self.app = app
         self.auth = app.auth.backend
         self.strict_usernames = app.config.get('auth.strict_usernames', True)
+        self.shared_secret = app.config.get('global.shared_secret')
 
     def user_exists(self, request):
         user_name = request.sync_info['username']
@@ -211,8 +212,10 @@ class UserController(object):
         if not valid_password(user_name, password):
             raise HTTPJsonBadRequest(WEAVE_WEAK_PASSWORD)
 
-        # check if captcha info are provided
-        self._check_captcha(request, data)
+        # check if captcha info are provided or if we bypass it
+        if (self.shared_secret is None or
+            request.headers.get('X-Weave-Secret') != self.shared_secret):
+            self._check_captcha(request, data)
 
         # all looks good, let's create the user
         # XXX need to do it in routes

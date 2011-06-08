@@ -50,7 +50,8 @@ from syncreg.tests.functional import support
 from services.tests.support import get_app
 from services.util import extract_username, BackendError
 from services.respcodes import (WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS,
-                                WEAVE_USERNAME_EMAIL_MISMATCH)
+                                WEAVE_USERNAME_EMAIL_MISMATCH,
+                                WEAVE_INVALID_CAPTCHA)
 
 
 class FakeSMTP(object):
@@ -69,7 +70,8 @@ class FakeSMTP(object):
 
 class FakeCaptchaResponse(object):
 
-    is_valid = True
+    def __init__(self, is_valid=True):
+        self.is_valid = is_valid
 
 
 class TestUser(support.TestWsgiApp):
@@ -490,3 +492,40 @@ class TestUser(support.TestWsgiApp):
         res = self.app.post(self.root + '/password', params=body,
                             headers=extra)
         self.assertEqual(res.body, 'success')
+
+    def test_shared_secret(self):
+        # creating a user
+        email = 'test_user%d%d@moz.com' % (time.time(),
+                                           random.randint(1, 100))
+        name = extract_username(email)
+        user_url = '/user/1.0/%s' % name
+
+        # we want the captcha to fail
+        app = get_app(self.app)
+        app.config['captcha.use'] = True
+
+        def _failed(self, *args, **kw):
+            return FakeCaptchaResponse(False)
+
+        captcha.submit = _failed
+        extra = {'X-Weave-Secret': 'xxx'}
+
+        try:
+            # everything is there, but bad secret. This should
+            # fallback to the captcha test and eventually fail
+            res = self.app.get(user_url)
+            self.assertFalse(json.loads(res.body))
+            payload = {'email': email, 'password': 'x' * 9}
+            payload = json.dumps(payload)
+            res = self.app.put(user_url, params=payload, headers=extra,
+                               status=400)
+            self.assertEquals(res.json, WEAVE_INVALID_CAPTCHA)
+
+            # let's use the real secret
+            extra['X-Weave-Secret'] = 'CHANGEME'
+            res = self.app.put(user_url, params=payload, headers=extra)
+            self.assertEquals(res.body, name)
+            res = self.app.get(user_url)
+            self.assertTrue(json.loads(res.body))
+        finally:
+            self.auth.delete_user(name, 'x' * 9)
