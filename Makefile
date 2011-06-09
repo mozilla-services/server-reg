@@ -11,6 +11,27 @@ PYLINT = bin/pylint
 PKGS = syncreg
 PYPI2RPM = bin/pypi2rpm.py
 BUILDAPP = bin/buildapp
+EZOPTIONS = -U -i $(PYPI)
+PYPI = http://pypi.python.org/simple
+PYPIOPTIONS = -i $(PYPI)
+
+ifdef PYPIEXTRAS
+	PYPIOPTIONS += -e $(PYPIEXTRAS)
+	EZOPTIONS += -f $(PYPIEXTRAS)
+endif
+
+ifdef PYPISTRICT
+	PYPIOPTIONS += -s
+	ifdef PYPIEXTRAS
+		HOST = `python -c "import urlparse; print urlparse.urlparse('$(PYPI)')[1] + ',' + urlparse.urlparse('$(PYPIEXTRAS)')[1]"`
+
+	else
+		HOST = `python -c "import urlparse; print urlparse.urlparse('$(PYPI)')[1]"`
+	endif
+	EZOPTIONS += --allow-hosts=$(HOST)
+endif
+
+EZ += $(EZOPTIONS)
 
 
 .PHONY: all build test build_rpms mach
@@ -19,8 +40,8 @@ all:	build
 
 build:
 	$(VIRTUALENV) --no-site-packages --distribute .
-	$(EZ) -U MoPyTools
-	$(BUILDAPP) $(APPNAME) $(DEPS)
+	$(EZ) MoPyTools
+	$(BUILDAPP) $(PYPIOPTIONS) $(APPNAME) $(DEPS)
 	$(EZ) nose
 	$(EZ) WebTest
 	$(EZ) Funkload
