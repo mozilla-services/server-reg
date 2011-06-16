@@ -9,10 +9,10 @@ COVEROPTS = --cover-html --cover-html-dir=html --with-coverage --cover-package=k
 COVERAGE = bin/coverage
 PYLINT = bin/pylint
 PKGS = syncreg
-PYPI2RPM = bin/pypi2rpm.py
 BUILDAPP = bin/buildapp
 EZOPTIONS = -U -i $(PYPI)
 PYPI = http://pypi.python.org/simple
+PYPI2RPM = bin/pypi2rpm.py --index=$(PYPI)
 PYPIOPTIONS = -i $(PYPI)
 
 ifdef PYPIEXTRAS
