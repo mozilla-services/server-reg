@@ -60,7 +60,7 @@ build_rpms:
 	rm -rf build; $(PYTHON) setup.py --command-packages=pypi2rpm.command bdist_rpm2 --spec-file=SyncReg.spec --dist-dir=$(CURDIR)/rpms --binary-only
 	cd deps/server-core; rm -rf build; ../../$(PYTHON) setup.py --command-packages=pypi2rpm.command bdist_rpm2 --spec-file=Services.spec --dist-dir=$(CURDIR)/rpms --binary-only
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms cef --version=0.2
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms webob --version=1.0.7
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms WebOb --version=1.0.7
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms paste --version=1.7.5.1
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms pastedeploy --version=1.3.4
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms pastescript --version=1.7.3
