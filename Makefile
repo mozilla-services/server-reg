@@ -61,18 +61,18 @@ build_rpms:
 	cd deps/server-core; rm -rf build; ../../$(PYTHON) setup.py --command-packages=pypi2rpm.command bdist_rpm2 --spec-file=Services.spec --dist-dir=$(CURDIR)/rpms --binary-only
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms cef --version=0.2
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms WebOb --version=1.0.7
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms paste --version=1.7.5.1
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms pastedeploy --version=1.3.4
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms pastescript --version=1.7.3
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms mako --version=0.4.1
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms markupsafe --version=0.12
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms beaker --version=1.5.4
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Paste --version=1.7.5.1
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms PasteDeploy --version=1.3.4
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms PasteScript --version=1.7.3
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Mako --version=0.4.1
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms MarkupSafe --version=0.12
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Beaker --version=1.5.4
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms python-memcached --version=1.47
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms simplejson --version=2.1.6
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms routes --version=1.12.3
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms sqlalchemy --version=0.6.6
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms mysql-python --version=1.2.3
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms wsgiproxy --version=0.2.2
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Routes --version=1.12.3
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms SQLAlchemy --version=0.6.6
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms MySQL-python --version=1.2.3
+	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms WSGIProxy --version=0.2.2
 	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms recaptcha-client --version=1.0.6
 
 mach: build build_rpms
