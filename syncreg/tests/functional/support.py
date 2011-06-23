@@ -65,7 +65,7 @@ class TestWsgiApp(unittest.TestCase):
             self.user_id = self.auth.get_user_id(self.user_name)
 
         # for the ldap backend, filling available_nodes
-        if self.auth.get_name() == 'ldap':
+        if self.auth.__class__.__name__ == 'LDAPAuth':
             query = ('insert into available_nodes (node, ct, actives) values '
                      ' ("weave:localhost", 10, 10)')
             self.auth._engine.execute(query)
