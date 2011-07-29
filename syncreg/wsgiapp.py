@@ -37,6 +37,7 @@
 Application entry point.
 """
 from services.baseapp import set_app
+from services.wsgiauth import Authentication
 
 from syncreg.controllers.user import UserController
 from syncreg.controllers.static import StaticController
@@ -78,4 +79,4 @@ urls = [('GET', _url('/user/_API_/_USERNAME_'), 'user', 'user_exists'),
 
 
 controllers = {'user': UserController, 'static': StaticController}
-make_app = set_app(urls, controllers)
+make_app = set_app(urls, controllers, auth_class=Authentication)
