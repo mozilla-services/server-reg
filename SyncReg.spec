@@ -1,14 +1,13 @@
 %define name python26-syncreg
 %define pythonname SyncReg
 %define version 0.5
-%define unmangled_version 0.5
 %define release 1
 
 Summary: Sync Reg server
 Name: %{name}
 Version: %{version}
 Release: %{release}
-Source0: %{pythonname}-%{unmangled_version}.tar.gz
+Source0: %{pythonname}-%{version}.tar.gz
 License: MPL
 Group: Development/Libraries
 BuildRoot: %{_tmppath}/%{pythonname}-%{version}-%{release}-buildroot
@@ -29,7 +28,7 @@ This is the Python implementation of the Reg Server.
 
 
 %prep
-%setup -n %{pythonname}-%{unmangled_version} -n %{pythonname}-%{unmangled_version}
+%setup -n %{pythonname}-%{version} -n %{pythonname}-%{version}
 
 %build
 python2.6 setup.py build

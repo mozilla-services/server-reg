@@ -33,11 +33,22 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
+import os
+import re
 from setuptools import setup, find_packages
 
 install_requires = ['SQLALchemy<=0.6.99', 'PasteDeploy', 'WebOb', 'Mako',
                     'recaptcha-client', 'Routes', 'simplejson',
                     'Services', 'cef']
+
+# extracting the version number from the .spec file
+here = os.path.dirname(__file__)
+spec = os.path.join(here, 'SyncReg.spec')
+with open(spec) as f:
+    spec = f.read()
+
+_VERSION = re.compile('^%define version (.*)$', re.M)
+version = _VERSION.findall(spec)[0]
 
 entry_points = """
 [paste.app_factory]
@@ -47,6 +58,6 @@ main = syncreg.wsgiapp:make_app
 main = paste.script.appinstall:Installer
 """
 
-setup(name='SyncReg', version='0.5', packages=find_packages(),
+setup(name='SyncReg', version=version, packages=find_packages(),
       install_requires=install_requires, entry_points=entry_points,
       package_data={'syncreg': ['templates/*.mako']})
