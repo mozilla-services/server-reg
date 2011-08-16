@@ -7,7 +7,8 @@ PYTHON = bin/python
 BUILDAPP = bin/buildapp
 PYPI = http://pypi.python.org/simple
 PYPIOPTIONS = -i $(PYPI)
-CHANNEL = prod
+CHANNEL = dev
+RPM_CHANNEL = prod
 INSTALL = bin/pip install
 INSTALLOPTIONS = -U -i $(PYPI)
 
@@ -49,7 +50,7 @@ test:
 	$(NOSE) $(TESTS)
 
 build_rpms:
-	$(BUILDRPMS) -c $(CHANNEL) $(DEPS)
+	$(BUILDRPMS) -c $(RPM_CHANNEL) $(DEPS)
 
 mach: build build_rpms
 	mach clean
