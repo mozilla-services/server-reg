@@ -24,7 +24,7 @@ ifdef PYPISTRICT
 	else
 		HOST = `python -c "import urlparse; print urlparse.urlparse('$(PYPI)')[1]"`
 	endif
-	INSTALLOPTIONS += --install-option="--allow-hosts $(HOST)"
+	INSTALLOPTIONS += --install-option "--allow-hosts $(HOST)"
 
 endif
 
