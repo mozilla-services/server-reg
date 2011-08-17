@@ -19,6 +19,7 @@
 #
 # Contributor(s):
 #   Tarek Ziade (tarek@mozilla.com)
+#   Rob Miller (rmiller@mozilla.com)
 #
 # Alternatively, the contents of this file may be used under the terms of
 # either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -33,48 +34,14 @@
 # the terms of any one of the MPL, the GPL or the LGPL.
 #
 # ***** END LICENSE BLOCK *****
-from ConfigParser import RawConfigParser
 import os
-from logging.config import fileConfig
 
-from services.auth import get_auth
-from services.util import convert_config
+from services.tests.support import TestEnv
 
 
-_DIR = os.path.dirname(__file__)
-
-
-while True:
-    if 'WEAVE_TESTFILE' in os.environ:
-        _INI_FILE = os.path.join(_DIR, 'tests_%s.ini' % \
-                                 os.environ['WEAVE_TESTFILE'])
-    else:
-        _INI_FILE = os.path.join(_DIR, 'tests.ini')
-
-    if os.path.exists(_INI_FILE):
-        break
-
-    _DIR = os.path.split(_DIR)[0]
-    if _DIR == '/':
-        raise IOError("could not find a test ini")
-
-
-def initenv():
-    """Reads the config file and instanciates an auth and a storage.
-
-    The WEAVE_TESTFILE=name environment variable can be used to point
-    a particular tests_name.ini file.
+def initenv(config=None):
+    """Reads the config file and instantiates an auth and a storage.
     """
-    cfg = RawConfigParser()
-    cfg.read(_INI_FILE)
-
-    # loading loggers
-    if cfg.has_section('loggers'):
-        fileConfig(_INI_FILE)
-
-    here = {'here': os.path.dirname(os.path.realpath(_INI_FILE))}
-    config = dict([(key, value % here)for key, value in
-                  cfg.items('DEFAULT') + cfg.items('app:main')])
-    config = convert_config(config)
-    auth = get_auth(config)
-    return _DIR, config, auth
+    mydir = os.path.dirname(__file__)
+    testenv = TestEnv(ini_path=config, ini_dir=mydir, load_sections=['auth'])
+    return testenv.ini_dir, testenv.config, testenv.auth
