@@ -4,20 +4,18 @@ VIRTUALENV = virtualenv
 NOSE = bin/nosetests -s --with-xunit
 TESTS = syncreg/tests
 PYTHON = bin/python
-EZ = bin/easy_install
-COVEROPTS = --cover-html --cover-html-dir=html --with-coverage --cover-package=keyexchange
-COVERAGE = bin/coverage
-PYLINT = bin/pylint
-PKGS = syncreg
 BUILDAPP = bin/buildapp
-EZOPTIONS = -U -i $(PYPI)
+BUILDRPMS = bin/buildrpms
 PYPI = http://pypi.python.org/simple
-PYPI2RPM = bin/pypi2rpm.py --index=$(PYPI)
 PYPIOPTIONS = -i $(PYPI)
+CHANNEL = dev
+RPM_CHANNEL = prod
+INSTALL = bin/pip install
+INSTALLOPTIONS = -U -i $(PYPI)
 
 ifdef PYPIEXTRAS
 	PYPIOPTIONS += -e $(PYPIEXTRAS)
-	EZOPTIONS += -f $(PYPIEXTRAS)
+	INSTALLOPTIONS += -f $(PYPIEXTRAS)
 endif
 
 ifdef PYPISTRICT
@@ -28,10 +26,11 @@ ifdef PYPISTRICT
 	else
 		HOST = `python -c "import urlparse; print urlparse.urlparse('$(PYPI)')[1]"`
 	endif
-	EZOPTIONS += --allow-hosts=$(HOST)
+
 endif
 
-EZ += $(EZOPTIONS)
+INSTALL += $(INSTALLOPTIONS)
+
 
 
 .PHONY: all build test build_rpms mach
@@ -40,40 +39,19 @@ all:	build
 
 build:
 	$(VIRTUALENV) --no-site-packages --distribute .
-	$(EZ) MoPyTools
-	$(BUILDAPP) $(PYPIOPTIONS) $(APPNAME) $(DEPS)
-	$(EZ) nose
-	$(EZ) WebTest
-	$(EZ) Funkload
-	$(EZ) pylint
-	$(EZ) coverage
-	$(EZ) pypi2rpm
-	$(EZ) wsgi_intercept
-	$(EZ) wsgiproxy
+	$(INSTALL) MoPyTools
+	$(INSTALL) nose
+	$(INSTALL) WebTest
+	$(BUILDAPP) -c $(CHANNEL) $(PYPIOPTIONS) $(DEPS)
+
+update:
+	$(BUILDAPP) -c $(CHANNEL) $(PYPIOPTIONS) $(DEPS)
 
 test:
 	$(NOSE) $(TESTS)
 
 build_rpms:
-	rm -rf $(CURDIR)/rpms
-	mkdir $(CURDIR)/rpms
-	rm -rf build; $(PYTHON) setup.py --command-packages=pypi2rpm.command bdist_rpm2 --spec-file=SyncReg.spec --dist-dir=$(CURDIR)/rpms --binary-only
-	cd deps/server-core; rm -rf build; ../../$(PYTHON) setup.py --command-packages=pypi2rpm.command bdist_rpm2 --spec-file=Services.spec --dist-dir=$(CURDIR)/rpms --binary-only
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms cef --version=0.2
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms WebOb --version=1.0.7
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Paste --version=1.7.5.1
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms PasteDeploy --version=1.3.4
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms PasteScript --version=1.7.3
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Mako --version=0.4.1
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms MarkupSafe --version=0.12
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Beaker --version=1.5.4
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms python-memcached --version=1.47
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms simplejson --version=2.1.6
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms Routes --version=1.12.3
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms SQLAlchemy --version=0.6.6
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms MySQL-python --version=1.2.3
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms WSGIProxy --version=0.2.2
-	$(PYPI2RPM) --dist-dir=$(CURDIR)/rpms recaptcha-client --version=1.0.6
+	$(BUILDRPMS) -c $(RPM_CHANNEL) $(DEPS)
 
 mach: build build_rpms
 	mach clean
