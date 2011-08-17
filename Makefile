@@ -5,6 +5,7 @@ NOSE = bin/nosetests -s --with-xunit
 TESTS = syncreg/tests
 PYTHON = bin/python
 BUILDAPP = bin/buildapp
+BUILDRPMS = bin/buildrpms
 PYPI = http://pypi.python.org/simple
 PYPIOPTIONS = -i $(PYPI)
 CHANNEL = dev
