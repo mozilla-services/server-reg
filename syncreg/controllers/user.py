@@ -40,6 +40,7 @@ https://wiki.mozilla.org/Labs/Weave/User/1.0/API
 
 """
 import os
+import traceback
 import simplejson as json
 
 from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
@@ -62,9 +63,10 @@ from services.respcodes import (WEAVE_MISSING_PASSWORD,
                                 WEAVE_INVALID_RESET_CODE,
                                 WEAVE_INVALID_CAPTCHA,
                                 WEAVE_USERNAME_EMAIL_MISMATCH)
-from services.auth import NodeAttributionError
+from services.pluginreg import load_and_configure
 from syncreg.util import render_mako
-
+from services.user import User
+from mozsvcnodes import NodeAttributionError
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -73,89 +75,124 @@ class UserController(object):
 
     def __init__(self, app):
         self.app = app
-        self.auth = app.auth.backend
         self.strict_usernames = app.config.get('auth.strict_usernames', True)
         self.shared_secret = app.config.get('global.shared_secret')
+        self.auth = self.app.auth.backend
+
+        try:
+            self.nodes = load_and_configure(app.config, 'nodes')
+        except KeyError:
+            logger.debug(traceback.format_exc())
+            logger.debug("No node library in place")
+            self.nodes = None
+        self.fallback_node = \
+                    self.clean_location(app.config.get('nodes.fallback_node'))
+
+        try:
+            self.reset = load_and_configure(app.config, 'reset_codes')
+        except Exception:
+            logger.debug(traceback.format_exc())
+            logger.debug("No reset code library in place")
+            self.reset = None
 
     def user_exists(self, request):
-        user_name = request.sync_info['username']
-        exists = self._user_exists(user_name)
-        return text_response(int(exists))
+        if request.user.get('username') is None:
+            raise HTTPNotFound()
+        uid = self.auth.get_user_id(request.user)
+        return text_response(int(uid is not None))
+
+    def return_fallback(self):
+        if self.fallback_node is None:
+            return json_response(None)
+        return self.fallback_node
+
+    def clean_location(self, location):
+        if location is None:
+            return None
+        if not location.endswith('/'):
+            location += '/'
+        if not location.startswith('http'):
+            location = 'https://%s' % location
 
     def user_node(self, request):
         """Returns the storage node root for the user"""
         # warning:
         # the client expects a string body not a json body
         # except when the node is 'null'
-        user_name = request.sync_info['username']
-        user_id = self.auth.get_user_id(user_name)
-        if user_id is None:
-            logger.debug('Could not get the user id for %s' % user_name)
+        if request.user.get('username') is None:
             raise HTTPNotFound()
 
+        if not self.auth.get_user_id(request.user):
+            raise HTTPNotFound()
+
+        if self.nodes is None:
+            return self.return_fallback()
+
         try:
-            location = self.auth.get_user_node(user_id)
+            location = self.nodes.get_best_node('sync', user=request.user)
         except (NodeAttributionError, BackendError):
             # this happens when the back end failed to get a node
-            return json_response(None)
+            return self.return_fallback()
 
         if location is None:
-            fallback = self.app.config.get('auth.fallback_node')
-            if fallback is not None:
-                if not fallback.endswith('/'):
-                    # the client expects an ending /
-                    fallback += '/'
-                return fallback
-            else:
-                return json_response(None)
+            return self.return_fallback()
 
-        return location
+        return self.clean_location(location)
 
     def password_reset(self, request, **data):
         """Sends an e-mail for a password reset request."""
+        if self.reset is None:
+            logger.debug('reset attempted, but no resetcode library installed')
+            raise HTTPServiceUnavailable()
 
-        user_name = request.sync_info['username']
-        user_id = self.auth.get_user_id(user_name)
+        user_id = self.auth.get_user_id(request.user)
         if user_id is None:
             # user not found
             raise HTTPJsonBadRequest(WEAVE_INVALID_USER)
 
-        __, user_email = self.auth.get_user_info(user_id)
-        if user_email is None:
+        self.auth.get_user_info(request.user, ['mail'])
+        if request.user.get('mail') is None:
             raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
 
         self._check_captcha(request, data)
 
-        # the request looks fine, let's generate the reset code
-        code = self.auth.generate_reset_code(user_id)
+        try:
+            # the request looks fine, let's generate the reset code
+            code = self.reset.generate_reset_code(request.user)
 
-        data = {'host': request.host_url, 'user_name': user_name,
-                'code': code}
-        body = render_mako('password_reset_mail.mako', **data)
+            data = {'host': request.host_url,
+                    'user_name': request.user['username'], 'code': code}
+            body = render_mako('password_reset_mail.mako', **data)
 
-        sender = request.config['smtp.sender']
-        host = request.config['smtp.host']
-        port = int(request.config['smtp.port'])
-        user = request.config.get('smtp.user')
-        password = request.config.get('smtp.password')
+            sender = request.config['smtp.sender']
+            host = request.config['smtp.host']
+            port = int(request.config['smtp.port'])
+            user = request.config.get('smtp.user')
+            password = request.config.get('smtp.password')
 
-        subject = 'Resetting your Weave password'
-        res, msg = send_email(sender, user_email, subject, body, host, port,
-                              user, password)
+            subject = 'Resetting your Services password'
+            res, msg = send_email(sender, request.user['mail'], subject, body,
+                                  host, port, user, password)
 
-        if not res:
-            raise HTTPServiceUnavailable(msg)
+            if not res:
+                raise HTTPServiceUnavailable(msg)
+        except AlreadySentError:
+            #backend handled the reset code email. Keep going
+            pass
 
         return text_response('success')
 
     def delete_password_reset(self, request, **data):
         """Forces a password reset clear"""
-        user_id = request.sync_info['user_id']
-        # check if captcha info are provided
+        if self.reset is None:
+            logger.debug('reset attempted, but no resetcode library installed')
+            raise HTTPServiceUnavailable()
+
         self._check_captcha(request, data)
-        self.auth.clear_reset_code(user_id)
+        self.auth.get_user_id(request.user)
+        self.reset.clear_reset_code(request.user)
         log_cef('Password Reset Cancelled', 7, request.environ,
-                self.app.config, username=request.sync_info['username'],
+                self.app.config, username=request.user.get('username'),
                 signature=PASSWD_RESET_CLR)
         return text_response('success')
 
@@ -176,40 +213,31 @@ class UserController(object):
         else:
             raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
 
-    def _user_exists(self, user_name):
-        user_id = self.auth.get_user_id(user_name)
-        if user_id is None:
-            return False
-        cn, __ = self.auth.get_user_info(user_id)
-        return cn is not None
-
     def create_user(self, request):
         """Creates a user."""
-        user_name = request.sync_info['username']
-        if self._user_exists(user_name):
+        if self.auth.get_user_id(request.user):
             raise HTTPJsonBadRequest(WEAVE_INVALID_WRITE)
+        username = request.user['username']
 
         try:
             data = json.loads(request.body)
         except ValueError:
             raise HTTPJsonBadRequest(WEAVE_MALFORMED_JSON)
 
-        # getting the e-mail
         email = data.get('email')
-        if not valid_email(email):
+        if email and not valid_email(email):
             raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
 
         # checking that the e-mail matches the username
         munged_email = extract_username(email)
-        if munged_email != user_name and self.strict_usernames:
+        if munged_email != username and self.strict_usernames:
             raise HTTPJsonBadRequest(WEAVE_USERNAME_EMAIL_MISMATCH)
 
-        # getting the password
         password = data.get('password')
-        if password is None:
+        if not valid_password(username, password):
             raise HTTPJsonBadRequest(WEAVE_MISSING_PASSWORD)
 
-        if not valid_password(user_name, password):
+        if not valid_password(username, password):
             raise HTTPJsonBadRequest(WEAVE_WEAK_PASSWORD)
 
         # check if captcha info are provided or if we bypass it
@@ -217,16 +245,16 @@ class UserController(object):
             request.headers.get('X-Weave-Secret') != self.shared_secret):
             self._check_captcha(request, data)
 
+
         # all looks good, let's create the user
-        # XXX need to do it in routes
-        if not self.auth.create_user(user_name, password, email):
+        if not self.auth.create_user(request.user['username'], password,
+                                     email):
             raise HTTPInternalServerError('User creation failed.')
 
-        return user_name
+        return request.user['username']
 
     def change_email(self, request):
         """Changes the user e-mail"""
-        user_id = request.sync_info['user_id']
 
         # the body is in plain text
         email = request.body
@@ -237,7 +265,8 @@ class UserController(object):
         if not hasattr(request, 'user_password'):
             raise HTTPBadRequest()
 
-        if not self.auth.update_email(user_id, email, request.user_password):
+        if not self.auth.update_field(request.user, request.user_password,
+                                      'mail', email):
             raise HTTPInternalServerError('User update failed.')
 
         return text_response(email)
@@ -247,65 +276,49 @@ class UserController(object):
 
         Takes a classical authentication or a reset code
         """
-        user_name = request.sync_info['username']
-        key = request.headers.get('X-Weave-Password-Reset')
-
-        if key is not None:
-            admin_update = True
-            user_id = self.auth.get_user_id(user_name)
-
-            if user_id is None:
-                raise HTTPNotFound()
-
-            if not self.auth.verify_reset_code(user_id, key):
-                log_cef('Invalid Reset Code Submitted', 5,
-                        request.environ, self.app.config,
-                        suser=user_name, submitedtoken=key)
-
-                raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
-        else:
-            admin_update = False
-
-            # classical auth
-            user_id = self.app.auth.authenticate_user(request,
-                                                      self.app.config,
-                                                      user_name)
-            if user_id is None:
-                user_id = self.auth.get_user_id(user_name)
-                if user_id is None:
-                    # user does not exists
-                    raise HTTPNotFound()
-
-                # user exists but bad password
-                log_cef('Authentication Failed', 5, request.environ,
-                        self.app.config, suser=user_name)
-
-                raise HTTPUnauthorized()
-
-            if not hasattr(request, 'user_password'):
-                raise HTTPBadRequest()
-
-            key = request.user_password
-
-        request.sync_info['user_id'] = user_id
-
         # the body is in plain text utf8 string
-        password = request.body.decode('utf8')
+        new_password = request.body.decode('utf8')
 
-        if not valid_password(user_name, password):
+        if not valid_password(request.user.get('username'), new_password):
             raise HTTPBadRequest('Password should be at least 8 '
                                  'characters and not the same as your '
                                  'username')
 
-        # everything looks fine
-        if admin_update:
-            update_func = self.auth.admin_update_password
-        else:
-            update_func = self.auth.update_password
+        key = request.headers.get('X-Weave-Password-Reset')
 
-        if not update_func(user_id, password, key):
-            raise HTTPInternalServerError('Password change failed '
-                                          'unexpectedly.')
+        if key is not None:
+            user_id = self.auth.get_user_id(request.user)
+
+            if user_id is None:
+                raise HTTPNotFound()
+
+            if not self.reset.verify_reset_code(request.user, key):
+                log_cef('Invalid Reset Code Submitted', 5,
+                        request.environ, self.app.config,
+                        suser=request.user['username'], submitedtoken=key)
+
+                raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
+
+
+            if not self.auth.admin_update_password(request.user,
+                                                   new_password, key):
+                raise HTTPInternalServerError('Password change failed '
+                                              'unexpectedly.')
+        else:
+            # classical auth
+            self.app.auth.authenticate_user(request, self.app.config,
+                                            request.user['username'])
+
+            if request.user['userid'] is None:
+                log_cef('Authentication Failed', 5, request.environ,
+                        self.app.config, suser=user_name)
+                raise HTTPUnauthorized()
+
+            if not self.auth.update_password(request.user,
+                                             request.user_password,
+                                             new_password):
+                raise HTTPInternalServerError('Password change failed '
+                                              'unexpectedly.')
 
         return text_response('success')
 
@@ -326,6 +339,10 @@ class UserController(object):
 
     def do_password_reset(self, request):
         """Do a password reset."""
+        if self.reset is None:
+            logger.debug('reset attempted, but no resetcode library installed')
+            raise HTTPServiceUnavailable()
+
         user_name = request.POST.get('username')
         if user_name is not None:
             user_name = extract_username(user_name)
@@ -333,7 +350,7 @@ class UserController(object):
         if request.POST.keys() == ['username']:
             # setting up a password reset
             # XXX add support for captcha here via **data
-            request.sync_info['username'] = user_name
+            request.user = User(user_name)
             try:
                 self.password_reset(request)
             except (HTTPServiceUnavailable, HTTPJsonBadRequest), e:
@@ -356,7 +373,8 @@ class UserController(object):
                                 'Username not provided. Please check '
                                 'the link you used.')
 
-        user_id = self.auth.get_user_id(user_name)
+        user = User(user_name)
+        user_id = self.auth.get_user_id(user)
         if user_id is None:
             return self._repost(request, 'We are unable to locate your '
                                 'account')
@@ -374,26 +392,25 @@ class UserController(object):
                                 'characters and not the same as your '
                                 'username')
 
-        if not self.auth.verify_reset_code(user_id, key):
+        if not self.reset.verify_reset_code(user, key):
             return self._repost(request, 'Key does not match with username. '
                                 'Please request a new key.')
 
         # everything looks fine
-        if not self.auth.admin_update_password(user_id, password, key):
+        if not self.auth.admin_update_field(user, 'password', password):
             return self._repost(request, 'Password change failed '
-                                'unexpectedly.')
+                                         'unexpectedly.')
 
-        self.auth.clear_reset_code(user_id)
+        self.reset.clear_reset_code(user)
         return render_mako('password_changed.mako')
 
     def delete_user(self, request):
         """Deletes the user."""
 
-        user_id = request.sync_info['user_id']
         if not hasattr(request, 'user_password'):
             raise HTTPBadRequest()
 
-        res = self.auth.delete_user(user_id, request.user_password)
+        res = self.auth.delete_user(request.user, request.user_password)
         return text_response(int(res))
 
     def _captcha(self):

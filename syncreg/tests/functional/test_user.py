@@ -47,6 +47,7 @@ from webtest import AppError
 from recaptcha.client import captcha
 
 from syncreg.tests.functional import support
+from services.user import User
 from services.tests.support import get_app
 from services.util import extract_username, BackendError
 from services.respcodes import (WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS,
@@ -338,7 +339,7 @@ class TestUser(support.TestWsgiApp):
             res = self.app.get(user_url)
             self.assertTrue(json.loads(res.body))
         finally:
-            self.auth.delete_user(name, 'x' * 9)
+            self.auth.delete_user(User(name), 'x' * 9)
 
     def test_non_ascii_password(self):
         # creating a user
@@ -441,12 +442,12 @@ class TestUser(support.TestWsgiApp):
 
     def test_fallback_node(self):
         app = get_app(self.app)
-        proxy = app.config['auth.fallback_node'] = 'http://myhappy/proxy/'
+        proxy = app.controllers['user'].fallback_node = 'http://myhappy/proxy/'
         url = '/user/1.0/%s/node/weave' % self.user_name
         res = self.app.get(url)
         self.assertEqual(res.body, proxy)
 
-        del app.config['auth.fallback_node']
+        app.controllers['user'].fallback_node = None
         res = self.app.get(url)
         self.assertEqual(res.body, 'null')
 
@@ -482,11 +483,9 @@ class TestUser(support.TestWsgiApp):
                             headers=extra, status=400)
         self.assertEquals(res.body, '10')
 
-        # let's create a valid key
-        backend = get_app(self.app).auth.backend
-        user_id = backend.get_user_id(self.user_name)
-
-        key = backend.generate_reset_code(user_id)
+        user = User(self.user_name)
+        self.auth.get_user_id(user)
+        key = str(self.reset.generate_reset_code(user))
 
         extra = {'X-Weave-Password-Reset': key}
         res = self.app.post(self.root + '/password', params=body,
@@ -528,4 +527,4 @@ class TestUser(support.TestWsgiApp):
             res = self.app.get(user_url)
             self.assertTrue(json.loads(res.body))
         finally:
-            self.auth.delete_user(name, 'x' * 9)
+            self.auth.delete_user(User(name), 'x' * 9)

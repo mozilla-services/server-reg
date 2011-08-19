@@ -38,12 +38,16 @@
 import os
 import unittest
 import random
+import traceback
 
 from webtest import TestApp
 
 from syncreg.tests.support import initenv
 from syncreg.wsgiapp import make_app
 from services.util import extract_username
+from services.user import User
+from services.pluginreg import load_and_configure
+from syncreg import logger
 
 
 class TestWsgiApp(unittest.TestCase):
@@ -57,12 +61,13 @@ class TestWsgiApp(unittest.TestCase):
         # adding a user if needed
         self.email = 'test_user%d@mozilla.com' % random.randint(1, 1000)
         self.user_name = extract_username(self.email)
-        self.user_id = self.auth.get_user_id(self.user_name)
+        self.user = User(self.user_name)
+        self.user_id = self.auth.get_user_id(self.user)
         self.password = 'x' * 9
 
         if self.user_id is None:
             self.auth.create_user(self.user_name, self.password, self.email)
-            self.user_id = self.auth.get_user_id(self.user_name)
+            self.user_id = self.auth.get_user_id(self.user)
 
         # for the ldap backend, filling available_nodes
         if self.auth.__class__.__name__ == 'LDAPAuth':
@@ -70,8 +75,22 @@ class TestWsgiApp(unittest.TestCase):
                      ' ("weave:localhost", 10, 10)')
             self.auth._engine.execute(query)
 
+        try:
+            self.nodes = load_and_configure(self.config, 'nodes')
+        except KeyError:
+            logger.debug(traceback.format_exc())
+            logger.debug("No node library in place")
+            self.nodes = None
+
+        try:
+            self.reset = load_and_configure(self.config, 'reset_codes')
+        except Exception:
+            logger.debug(traceback.format_exc())
+            logger.debug("No reset code library in place")
+            self.reset = None
+
     def tearDown(self):
-        self.auth.delete_user(self.user_id, self.password)
+        self.auth.delete_user(self.user, self.password)
         cef_logs = os.path.join(self.appdir, 'test_cef.log')
         if os.path.exists(cef_logs):
             os.remove(cef_logs)

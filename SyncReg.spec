@@ -1,6 +1,6 @@
 %define name python26-syncreg
 %define pythonname SyncReg
-%define version 0.5
+%define version 1.0
 %define release 1
 
 Summary: Sync Reg server

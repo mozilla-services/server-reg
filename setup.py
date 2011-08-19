@@ -39,7 +39,7 @@ from setuptools import setup, find_packages
 
 install_requires = ['SQLALchemy<=0.6.99', 'PasteDeploy', 'WebOb', 'Mako',
                     'recaptcha-client', 'Routes', 'simplejson',
-                    'Services', 'cef']
+                    'Services>=2.0', 'cef', 'MozSvcNodes']
 
 # extracting the version number from the .spec file
 here = os.path.dirname(__file__)
