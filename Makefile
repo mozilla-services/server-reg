@@ -1,5 +1,5 @@
 APPNAME = server-reg
-DEPS = server-core,server-node-assignment
+DEPS = server-core
 VIRTUALENV = virtualenv
 NOSE = bin/nosetests -s --with-xunit
 TESTS = syncreg/tests

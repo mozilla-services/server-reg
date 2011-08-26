@@ -66,7 +66,6 @@ from services.respcodes import (WEAVE_MISSING_PASSWORD,
 from services.pluginreg import load_and_configure
 from syncreg.util import render_mako
 from services.user import User
-from mozsvcnodes import NodeAttributionError
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
@@ -130,7 +129,7 @@ class UserController(object):
 
         try:
             location = self.nodes.get_best_node('sync', user=request.user)
-        except (NodeAttributionError, BackendError):
+        except (BackendError):
             # this happens when the back end failed to get a node
             return self.return_fallback()
 
