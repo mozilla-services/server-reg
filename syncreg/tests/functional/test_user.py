@@ -49,10 +49,11 @@ from recaptcha.client import captcha
 from syncreg.tests.functional import support
 from services.user import User
 from services.tests.support import get_app
-from services.util import extract_username, BackendError
-from services.respcodes import (WEAVE_INVALID_USER, WEAVE_NO_EMAIL_ADRESS,
-                                WEAVE_USERNAME_EMAIL_MISMATCH,
-                                WEAVE_INVALID_CAPTCHA)
+from services.user import extract_username
+from services.exceptions import BackendError
+from services.respcodes import (ERROR_INVALID_USER, ERROR_NO_EMAIL_ADDRESS,
+                                ERROR_USERNAME_EMAIL_MISMATCH,
+                                ERROR_INVALID_CAPTCHA)
 
 
 class FakeSMTP(object):
@@ -116,7 +117,7 @@ class TestUser(support.TestWsgiApp):
         try:
             self.app.get('/user/1.0/a/password_reset?%s' % captcha)
         except AppError, e:
-            self.assertTrue(e.args[0].endswith(str(WEAVE_INVALID_USER)))
+            self.assertTrue(e.args[0].endswith(str(ERROR_INVALID_USER)))
         else:
             raise AssertionError()
 
@@ -132,7 +133,7 @@ class TestUser(support.TestWsgiApp):
         try:
             self.app.get(self.root + '/password_reset?%s' % captcha)
         except AppError, e:
-            self.assertTrue(e.args[0].endswith(str(WEAVE_NO_EMAIL_ADRESS)))
+            self.assertTrue(e.args[0].endswith(str(ERROR_NO_EMAIL_ADDRESS)))
         else:
             raise AssertionError()
         finally:
@@ -324,7 +325,7 @@ class TestUser(support.TestWsgiApp):
             payload = {'email': 'another-valid@email.com', 'password': 'x' * 9}
             payload = json.dumps(payload)
             res = self.app.put(user_url, params=payload, status=400)
-            self.assertEquals(res.json, WEAVE_USERNAME_EMAIL_MISMATCH)
+            self.assertEquals(res.json, ERROR_USERNAME_EMAIL_MISMATCH)
 
             # everything is there
             res = self.app.get(user_url)
@@ -518,7 +519,7 @@ class TestUser(support.TestWsgiApp):
             payload = json.dumps(payload)
             res = self.app.put(user_url, params=payload, headers=extra,
                                status=400)
-            self.assertEquals(res.json, WEAVE_INVALID_CAPTCHA)
+            self.assertEquals(res.json, ERROR_INVALID_CAPTCHA)
 
             # let's use the real secret
             extra['X-Weave-Secret'] = 'CHANGEME'

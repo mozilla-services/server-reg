@@ -44,7 +44,7 @@ from webtest import TestApp
 
 from syncreg.tests.support import initenv
 from syncreg.wsgiapp import make_app
-from services.util import extract_username
+from services.user import extract_username
 from services.user import User
 from services.pluginreg import load_and_configure
 from syncreg import logger

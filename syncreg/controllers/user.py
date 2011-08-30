@@ -52,17 +52,19 @@ from cef import log_cef, PASSWD_RESET_CLR
 
 from services import logger
 from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password, text_response, BackendError,
-                           extract_username, json_response)
-from services.respcodes import (WEAVE_MISSING_PASSWORD,
-                                WEAVE_NO_EMAIL_ADRESS,
-                                WEAVE_INVALID_WRITE,
-                                WEAVE_MALFORMED_JSON,
-                                WEAVE_WEAK_PASSWORD,
-                                WEAVE_INVALID_USER,
-                                WEAVE_INVALID_RESET_CODE,
-                                WEAVE_INVALID_CAPTCHA,
-                                WEAVE_USERNAME_EMAIL_MISMATCH)
+                           valid_password)
+from services.exceptions import BackendError
+from services.formatters import text_response, json_response
+from services.user import extract_username
+from services.respcodes import (ERROR_MISSING_PASSWORD,
+                                ERROR_NO_EMAIL_ADDRESS,
+                                ERROR_INVALID_WRITE,
+                                ERROR_MALFORMED_JSON,
+                                ERROR_WEAK_PASSWORD,
+                                ERROR_INVALID_USER,
+                                ERROR_INVALID_RESET_CODE,
+                                ERROR_INVALID_CAPTCHA,
+                                ERROR_USERNAME_EMAIL_MISMATCH)
 from services.pluginreg import load_and_configure
 from syncreg.util import render_mako
 from services.user import User
@@ -147,11 +149,11 @@ class UserController(object):
         user_id = self.auth.get_user_id(request.user)
         if user_id is None:
             # user not found
-            raise HTTPJsonBadRequest(WEAVE_INVALID_USER)
+            raise HTTPJsonBadRequest(ERROR_INVALID_USER)
 
         self.auth.get_user_info(request.user, ['mail'])
         if request.user.get('mail') is None:
-            raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
+            raise HTTPJsonBadRequest(ERROR_NO_EMAIL_ADDRESS)
 
         self._check_captcha(request, data)
 
@@ -208,36 +210,36 @@ class UserController(object):
                                   self.app.config['captcha.private_key'],
                                   remoteip=request.remote_addr)
             if not resp.is_valid:
-                raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
+                raise HTTPJsonBadRequest(ERROR_INVALID_CAPTCHA)
         else:
-            raise HTTPJsonBadRequest(WEAVE_INVALID_CAPTCHA)
+            raise HTTPJsonBadRequest(ERROR_INVALID_CAPTCHA)
 
     def create_user(self, request):
         """Creates a user."""
         if self.auth.get_user_id(request.user):
-            raise HTTPJsonBadRequest(WEAVE_INVALID_WRITE)
+            raise HTTPJsonBadRequest(ERROR_INVALID_WRITE)
         username = request.user['username']
 
         try:
             data = json.loads(request.body)
         except ValueError:
-            raise HTTPJsonBadRequest(WEAVE_MALFORMED_JSON)
+            raise HTTPJsonBadRequest(ERROR_MALFORMED_JSON)
 
         email = data.get('email')
         if email and not valid_email(email):
-            raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
+            raise HTTPJsonBadRequest(ERROR_NO_EMAIL_ADDRESS)
 
         # checking that the e-mail matches the username
         munged_email = extract_username(email)
         if munged_email != username and self.strict_usernames:
-            raise HTTPJsonBadRequest(WEAVE_USERNAME_EMAIL_MISMATCH)
+            raise HTTPJsonBadRequest(ERROR_USERNAME_EMAIL_MISMATCH)
 
         password = data.get('password')
         if not valid_password(username, password):
-            raise HTTPJsonBadRequest(WEAVE_MISSING_PASSWORD)
+            raise HTTPJsonBadRequest(ERROR_MISSING_PASSWORD)
 
         if not valid_password(username, password):
-            raise HTTPJsonBadRequest(WEAVE_WEAK_PASSWORD)
+            raise HTTPJsonBadRequest(ERROR_WEAK_PASSWORD)
 
         # check if captcha info are provided or if we bypass it
         if (self.shared_secret is None or
@@ -259,7 +261,7 @@ class UserController(object):
         email = request.body
 
         if not valid_email(email):
-            raise HTTPJsonBadRequest(WEAVE_NO_EMAIL_ADRESS)
+            raise HTTPJsonBadRequest(ERROR_NO_EMAIL_ADDRESS)
 
         if not hasattr(request, 'user_password'):
             raise HTTPBadRequest()
@@ -296,7 +298,7 @@ class UserController(object):
                         request.environ, self.app.config,
                         suser=request.user['username'], submitedtoken=key)
 
-                raise HTTPJsonBadRequest(WEAVE_INVALID_RESET_CODE)
+                raise HTTPJsonBadRequest(ERROR_INVALID_RESET_CODE)
 
 
             if not self.auth.admin_update_password(request.user,
