@@ -53,7 +53,8 @@ from services.user import extract_username
 from services.exceptions import BackendError
 from services.respcodes import (ERROR_INVALID_USER, ERROR_NO_EMAIL_ADDRESS,
                                 ERROR_USERNAME_EMAIL_MISMATCH,
-                                ERROR_INVALID_CAPTCHA)
+                                ERROR_INVALID_CAPTCHA, ERROR_MISSING_PASSWORD,
+                                ERROR_WEAK_PASSWORD, ERROR_INVALID_WRITE)
 
 
 class FakeSMTP(object):
@@ -299,27 +300,32 @@ class TestUser(support.TestWsgiApp):
             # the user already exists
             payload = {'email': email, 'password': 'x' * 9}
             payload = json.dumps(payload)
-            self.app.put(self.root, params=payload, status=400)
+            res = self.app.put(self.root, params=payload, status=400)
+            self.assertEquals(res.json, ERROR_INVALID_WRITE)
 
             # missing the password
             payload = {'email': email}
             payload = json.dumps(payload)
-            self.app.put(user_url, params=payload, status=400)
+            res = self.app.put(user_url, params=payload, status=400)
+            self.assertEquals(res.json, ERROR_MISSING_PASSWORD)
 
             # malformed e-mail
             payload = {'email': 'bademailhere', 'password': 'x' * 9}
             payload = json.dumps(payload)
-            self.app.put(user_url, params=payload, status=400)
+            res = self.app.put(user_url, params=payload, status=400)
+            self.assertEquals(res.json, ERROR_NO_EMAIL_ADDRESS)
 
             # weak password
             payload = {'email': email, 'password': 'x'}
             payload = json.dumps(payload)
-            self.app.put(user_url, params=payload, status=400)
+            res = self.app.put(user_url, params=payload, status=400)
+            self.assertEquals(res.json, ERROR_WEAK_PASSWORD)
 
             # weak password #2
             payload = {'email': email, 'password': 'tarek2'}
             payload = json.dumps(payload)
-            self.app.put(user_url, params=payload, status=400)
+            res = self.app.put(user_url, params=payload, status=400)
+            self.assertEquals(res.json, ERROR_WEAK_PASSWORD)
 
             # the user name does not match the email
             payload = {'email': 'another-valid@email.com', 'password': 'x' * 9}

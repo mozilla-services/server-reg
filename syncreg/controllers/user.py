@@ -235,7 +235,7 @@ class UserController(object):
             raise HTTPJsonBadRequest(ERROR_USERNAME_EMAIL_MISMATCH)
 
         password = data.get('password')
-        if not valid_password(username, password):
+        if not password:
             raise HTTPJsonBadRequest(ERROR_MISSING_PASSWORD)
 
         if not valid_password(username, password):
