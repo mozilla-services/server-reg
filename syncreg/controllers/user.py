@@ -51,8 +51,8 @@ from recaptcha.client import captcha
 from cef import log_cef, PASSWD_RESET_CLR
 
 from services import logger
-from services.util import (send_email, valid_email, HTTPJsonBadRequest,
-                           valid_password)
+from services.util import HTTPJsonBadRequest, valid_password
+from services.emailer import send_email, valid_email
 from services.exceptions import BackendError
 from services.formatters import text_response, json_response
 from services.user import extract_username
