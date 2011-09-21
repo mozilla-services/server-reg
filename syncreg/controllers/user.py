@@ -56,6 +56,7 @@ from services.emailer import send_email, valid_email
 from services.exceptions import BackendError
 from services.formatters import text_response, json_response
 from services.user import extract_username
+from servies.resetcodes import AlreadySentError
 from services.respcodes import (ERROR_MISSING_PASSWORD,
                                 ERROR_NO_EMAIL_ADDRESS,
                                 ERROR_INVALID_WRITE,
@@ -246,7 +247,6 @@ class UserController(object):
             request.headers.get('X-Weave-Secret') != self.shared_secret):
             self._check_captcha(request, data)
 
-
         # all looks good, let's create the user
         if not self.auth.create_user(request.user['username'], password,
                                      email):
@@ -300,7 +300,6 @@ class UserController(object):
 
                 raise HTTPJsonBadRequest(ERROR_INVALID_RESET_CODE)
 
-
             if not self.auth.admin_update_password(request.user,
                                                    new_password, key):
                 raise HTTPInternalServerError('Password change failed '
@@ -312,7 +311,7 @@ class UserController(object):
 
             if request.user['userid'] is None:
                 log_cef('Authentication Failed', 5, request.environ,
-                        self.app.config, suser=user_name)
+                        self.app.config, suser=request.user['username'])
                 raise HTTPUnauthorized()
 
             if not self.auth.update_password(request.user,
