@@ -56,7 +56,7 @@ from services.emailer import send_email, valid_email
 from services.exceptions import BackendError
 from services.formatters import text_response, json_response
 from services.user import extract_username
-from servies.resetcodes import AlreadySentError
+from services.resetcodes import AlreadySentError
 from services.respcodes import (ERROR_MISSING_PASSWORD,
                                 ERROR_NO_EMAIL_ADDRESS,
                                 ERROR_INVALID_WRITE,
