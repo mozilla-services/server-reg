@@ -48,7 +48,7 @@ from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
                        HTTPUnauthorized)
 
 from recaptcha.client import captcha
-from cef import log_cef, PASSWD_RESET_CLR
+from cef import log_cef, AUTH_FAILURE, PASSWD_RESET_CLR
 
 from services import logger
 from services.util import HTTPJsonBadRequest, valid_password
@@ -193,9 +193,9 @@ class UserController(object):
         self._check_captcha(request, data)
         self.auth.get_user_id(request.user)
         self.reset.clear_reset_code(request.user)
-        log_cef('Password Reset Cancelled', 7, request.environ,
-                self.app.config, username=request.user.get('username'),
-                signature=PASSWD_RESET_CLR)
+        log_cef("User requested password reset clear", 9, request.environ,
+                self.app.config, request.user.get('username'),
+                PASSWD_RESET_CLR)
         return text_response('success')
 
     def _check_captcha(self, request, data):
@@ -294,9 +294,9 @@ class UserController(object):
                 raise HTTPNotFound()
 
             if not self.reset.verify_reset_code(request.user, key):
-                log_cef('Invalid Reset Code Submitted', 5,
-                        request.environ, self.app.config,
-                        suser=request.user['username'], submitedtoken=key)
+                log_cef('Invalid Reset Code submitted', 5, request.environ,
+                        self.app.config, request.user['username'],
+                        'InvalidResetCode', submitedtoken=key)
 
                 raise HTTPJsonBadRequest(ERROR_INVALID_RESET_CODE)
 
@@ -310,8 +310,9 @@ class UserController(object):
                                             request.user['username'])
 
             if request.user['userid'] is None:
-                log_cef('Authentication Failed', 5, request.environ,
-                        self.app.config, suser=request.user['username'])
+                log_cef('User Authentication Failed', 5, request.environ,
+                        self.app.config, request.user['username'],
+                        AUTH_FAILURE)
                 raise HTTPUnauthorized()
 
             if not self.auth.update_password(request.user,
