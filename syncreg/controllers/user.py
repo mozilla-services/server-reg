@@ -80,13 +80,6 @@ class UserController(object):
         self.strict_usernames = app.config.get('auth.strict_usernames', True)
         self.shared_secret = app.config.get('global.shared_secret')
         self.auth = self.app.auth.backend
-
-        try:
-            self.nodes = load_and_configure(app.config, 'nodes')
-        except KeyError:
-            logger.debug(traceback.format_exc())
-            logger.debug("No node library in place")
-            self.nodes = None
         self.fallback_node = \
                     self.clean_location(app.config.get('nodes.fallback_node'))
 
@@ -121,25 +114,20 @@ class UserController(object):
         # warning:
         # the client expects a string body not a json body
         # except when the node is 'null'
+
+        # IF YOU ARE USING ACTUAL NODE ASSIGNMENT (odds are you're not)
+        # There is now a separate assignment module:
+        # http://hg.mozilla.org/services/server-node-assignment
+        # Install that and point your server at it for
+        # the node assignment call
+
         if request.user.get('username') is None:
             raise HTTPNotFound()
 
         if not self.auth.get_user_id(request.user):
             raise HTTPNotFound()
 
-        if self.nodes is None:
-            return self.return_fallback()
-
-        try:
-            location = self.nodes.get_best_node('sync', user=request.user)
-        except (BackendError):
-            # this happens when the back end failed to get a node
-            return self.return_fallback()
-
-        if location is None:
-            return self.return_fallback()
-
-        return self.clean_location(location)
+        return self.return_fallback()
 
     def password_reset(self, request, **data):
         """Sends an e-mail for a password reset request."""
