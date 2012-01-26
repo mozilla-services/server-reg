@@ -108,6 +108,7 @@ class UserController(object):
             location += '/'
         if not location.startswith('http'):
             location = 'https://%s' % location
+        return location
 
     def user_node(self, request):
         """Returns the storage node root for the user"""
