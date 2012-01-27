@@ -387,7 +387,7 @@ class UserController(object):
                                 'Please request a new key.')
 
         # everything looks fine
-        if not self.auth.admin_update_field(user, 'password', password):
+        if not self.auth.admin_update_password(user, 'password', password):
             return self._repost(request, 'Password change failed '
                                          'unexpectedly.')
 
