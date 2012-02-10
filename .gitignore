@@ -1,10 +1,10 @@
-mako.py$
-pyc$
+*.mako.py
+*.pyc
 lib
 include
 bin
 SyncReg.egg-info
-swp$
+*.swp
 html
 doc/build
 \.coverage
