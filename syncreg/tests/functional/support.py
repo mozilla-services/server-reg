@@ -10,21 +10,25 @@ import traceback
 
 from webtest import TestApp
 
-from syncreg.tests.support import initenv
-from syncreg.wsgiapp import make_app
 from services.user import extract_username
 from services.user import User
-from services.pluginreg import load_and_configure
+
+from mozsvc.plugin import load_and_register
+from mozsvc.tests.support import get_test_configurator
+
 from syncreg import logger
 
 
 class TestWsgiApp(unittest.TestCase):
 
     def setUp(self):
-        # loading the app
-        self.appdir, self.config, self.auth = initenv()
+        self.config = get_test_configurator(__file__)
+        self.config.include("syncreg")
+
+        self.auth = self.config.registry["auth"]
         self.sqlfile = self.auth.sqluri.split('sqlite:///')[-1]
-        self.app = TestApp(make_app(self.config))
+
+        self.app = TestApp(self.config.make_wsgi_app())
 
         # adding a user if needed
         self.email = 'test_user%d@mozilla.com' % random.randint(1, 1000)
@@ -44,14 +48,14 @@ class TestWsgiApp(unittest.TestCase):
             self.auth._engine.execute(query)
 
         try:
-            self.nodes = load_and_configure(self.config, 'nodes')
+            self.nodes = load_and_register('nodes', self.config)
         except KeyError:
             logger.debug(traceback.format_exc())
             logger.debug("No node library in place")
             self.nodes = None
 
         try:
-            self.reset = load_and_configure(self.config, 'reset_codes')
+            self.reset = load_and_register('reset_codes', self.config)
         except Exception:
             logger.debug(traceback.format_exc())
             logger.debug("No reset code library in place")
@@ -59,9 +63,6 @@ class TestWsgiApp(unittest.TestCase):
 
     def tearDown(self):
         self.auth.delete_user(self.user, self.password)
-        cef_logs = os.path.join(self.appdir, 'test_cef.log')
-        if os.path.exists(cef_logs):
-            os.remove(cef_logs)
 
         if os.path.exists(self.sqlfile):
             os.remove(self.sqlfile)

@@ -11,8 +11,8 @@ This controller will fully load files it serves in memory.
 import os
 from mimetypes import guess_type
 
-from webob.exc import HTTPNotFound
-from webob import Response
+from pyramid.httpexceptions import HTTPNotFound
+from pyramid.response import Response
 
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), '..', 'static')
 
@@ -20,12 +20,12 @@ _STATIC_DIR = os.path.join(os.path.dirname(__file__), '..', 'static')
 class StaticController(object):
     """Used to return static files
     """
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, config):
+        pass
 
     def get_file(self, request):
         """Returns a file located in the static/ directory."""
-        filename = request.sync_info['filename']
+        filename = request.matchdict['filename']
         path = os.path.join(_STATIC_DIR, filename)
         if not os.path.exists(path):
             raise HTTPNotFound()

@@ -11,9 +11,10 @@ import os
 import traceback
 import simplejson as json
 
-from webob.exc import (HTTPServiceUnavailable, HTTPBadRequest,
-                       HTTPInternalServerError, HTTPNotFound,
-                       HTTPUnauthorized)
+from pyramid.response import Response
+from pyramid.httpexceptions import (HTTPServiceUnavailable, HTTPBadRequest,
+                                    HTTPInternalServerError, HTTPNotFound,
+                                    HTTPUnauthorized)
 
 from recaptcha.client import captcha
 from cef import log_cef, AUTH_FAILURE, PASSWD_RESET_CLR
@@ -21,7 +22,6 @@ from cef import log_cef, AUTH_FAILURE, PASSWD_RESET_CLR
 from services import logger
 from services.util import HTTPJsonBadRequest, valid_password
 from services.emailer import send_email, valid_email
-from services.exceptions import BackendError
 from services.formatters import text_response, json_response
 from services.user import extract_username
 from services.resetcodes import AlreadySentError
@@ -34,40 +34,50 @@ from services.respcodes import (ERROR_MISSING_PASSWORD,
                                 ERROR_INVALID_RESET_CODE,
                                 ERROR_INVALID_CAPTCHA,
                                 ERROR_USERNAME_EMAIL_MISMATCH)
-from services.pluginreg import load_and_configure
 from syncreg.util import render_mako
 from services.user import User
+
+from mozsvc.plugin import load_from_settings
 
 _TPL_DIR = os.path.join(os.path.dirname(__file__), 'templates')
 
 
+def resp_render_mako(*args, **kwds):
+    return Response(render_mako(*args, **kwds))
+
+
 class UserController(object):
 
-    def __init__(self, app):
-        self.app = app
-        self.strict_usernames = app.config.get('auth.strict_usernames', True)
-        self.shared_secret = app.config.get('global.shared_secret')
-        self.auth = self.app.auth.backend
+    def __init__(self, config):
+        settings = config.registry.settings
+        self.strict_usernames = settings.get('auth.strict_usernames', True)
+        self.shared_secret = settings.get('global.shared_secret')
+        if "auth" not in config.registry:
+            config.registry["auth"] = load_from_settings("auth", settings)
         self.fallback_node = \
-                    self.clean_location(app.config.get('nodes.fallback_node'))
+                    self.clean_location(settings.get('nodes.fallback_node'))
+        self._captcha_public_key = settings.get("captcha.public_key")
+        self._captcha_private_key = settings.get("captcha.private_key")
+        self._captcha_use_ssl = settings.get("captcha.use_ssl")
 
         try:
-            self.reset = load_and_configure(app.config, 'reset_codes')
+            self.reset = load_from_settings('reset_codes', settings)
         except Exception:
             logger.debug(traceback.format_exc())
             logger.debug("No reset code library in place")
             self.reset = None
 
     def user_exists(self, request):
-        if request.user.get('username') is None:
+        username = request.matchdict.get("username")
+        if username is None:
             raise HTTPNotFound()
-        uid = self.auth.get_user_id(request.user)
+        uid = request.registry["auth"].get_user_id({"username": username})
         return text_response(int(uid is not None))
 
     def return_fallback(self):
         if self.fallback_node is None:
             return json_response(None)
-        return self.fallback_node
+        return text_response(self.fallback_node)
 
     def clean_location(self, location):
         if location is None:
@@ -90,10 +100,11 @@ class UserController(object):
         # Install that and point your server at it for
         # the node assignment call
 
-        if request.user.get('username') is None:
+        username = request.matchdict.get("username")
+        if username is None:
             raise HTTPNotFound()
 
-        if not self.auth.get_user_id(request.user):
+        if not request.registry["auth"].get_user_id({"username": username}):
             raise HTTPNotFound()
 
         return self.return_fallback()
@@ -104,34 +115,35 @@ class UserController(object):
             logger.debug('reset attempted, but no resetcode library installed')
             raise HTTPServiceUnavailable()
 
-        user_id = self.auth.get_user_id(request.user)
+        user = {"username": request.matchdict["username"]}
+        user_id = request.registry["auth"].get_user_id(user)
         if user_id is None:
             # user not found
             raise HTTPJsonBadRequest(ERROR_INVALID_USER)
 
-        self.auth.get_user_info(request.user, ['mail'])
-        if request.user.get('mail') is None:
+        request.registry["auth"].get_user_info(user, ['mail'])
+        if user.get('mail') is None:
             raise HTTPJsonBadRequest(ERROR_NO_EMAIL_ADDRESS)
 
         self._check_captcha(request, data)
 
         try:
             # the request looks fine, let's generate the reset code
-            code = self.reset.generate_reset_code(request.user)
+            code = self.reset.generate_reset_code(user)
 
             data = {'host': request.host_url,
-                    'user_name': request.user['username'], 'code': code}
+                    'user_name': user['username'], 'code': code}
             body = render_mako('password_reset_mail.mako', **data)
 
-            sender = request.config['smtp.sender']
-            host = request.config['smtp.host']
-            port = int(request.config['smtp.port'])
-            user = request.config.get('smtp.user')
-            password = request.config.get('smtp.password')
+            sender = request.registry.settings['smtp.sender']
+            host = request.registry.settings['smtp.host']
+            port = int(request.registry.settings['smtp.port'])
+            mailuser = request.registry.settings.get('smtp.user')
+            password = request.registry.settings.get('smtp.password')
 
             subject = 'Resetting your Services password'
-            res, msg = send_email(sender, request.user['mail'], subject, body,
-                                  host, port, user, password)
+            res, msg = send_email(sender, user['mail'], subject, body,
+                                  host, port, mailuser, password)
 
             if not res:
                 raise HTTPServiceUnavailable(msg)
@@ -148,16 +160,16 @@ class UserController(object):
             raise HTTPServiceUnavailable()
 
         self._check_captcha(request, data)
-        self.auth.get_user_id(request.user)
+        request.registry["auth"].get_user_id(request.user)
         self.reset.clear_reset_code(request.user)
         log_cef("User requested password reset clear", 9, request.environ,
-                self.app.config, request.user.get('username'),
+                request.registry.settings, request.user.get('username'),
                 PASSWD_RESET_CLR)
         return text_response('success')
 
     def _check_captcha(self, request, data):
         # check if captcha info are provided
-        if not self.app.config['captcha.use']:
+        if not request.registry.settings.get('captcha.use'):
             return
 
         challenge = data.get('captcha-challenge')
@@ -165,7 +177,7 @@ class UserController(object):
 
         if challenge is not None and response is not None:
             resp = captcha.submit(challenge, response,
-                                  self.app.config['captcha.private_key'],
+                                  self._captcha_private_key,
                                   remoteip=request.remote_addr)
             if not resp.is_valid:
                 raise HTTPJsonBadRequest(ERROR_INVALID_CAPTCHA)
@@ -174,9 +186,9 @@ class UserController(object):
 
     def create_user(self, request):
         """Creates a user."""
-        if self.auth.get_user_id(request.user):
+        username = request.matchdict["username"]
+        if request.registry["auth"].get_user_id({"username": username}):
             raise HTTPJsonBadRequest(ERROR_INVALID_WRITE)
-        username = request.user['username']
 
         try:
             data = json.loads(request.body)
@@ -205,26 +217,25 @@ class UserController(object):
             self._check_captcha(request, data)
 
         # all looks good, let's create the user
-        if not self.auth.create_user(request.user['username'], password,
-                                     email):
+        if not request.registry["auth"].create_user(username, password, email):
             raise HTTPInternalServerError('User creation failed.')
 
-        return request.user['username']
+        return text_response(username)
 
     def change_email(self, request):
         """Changes the user e-mail"""
-
         # the body is in plain text
         email = request.body
 
         if not valid_email(email):
             raise HTTPJsonBadRequest(ERROR_NO_EMAIL_ADDRESS)
 
-        if not hasattr(request, 'user_password'):
+        if not request.user or "password" not in request.user:
             raise HTTPBadRequest()
 
-        if not self.auth.update_field(request.user, request.user_password,
-                                      'mail', email):
+        if not request.registry["auth"].update_field(request.user,
+                                                     request.user["password"],
+                                                     'mail', email):
             raise HTTPInternalServerError('User update failed.')
 
         return text_response(email)
@@ -234,10 +245,11 @@ class UserController(object):
 
         Takes a classical authentication or a reset code
         """
+        username = request.matchdict["username"]
         # the body is in plain text utf8 string
         new_password = request.body.decode('utf8')
 
-        if not valid_password(request.user.get('username'), new_password):
+        if not valid_password(username, new_password):
             raise HTTPBadRequest('Password should be at least 8 '
                                  'characters and not the same as your '
                                  'username')
@@ -245,36 +257,36 @@ class UserController(object):
         key = request.headers.get('X-Weave-Password-Reset')
 
         if key is not None:
-            user_id = self.auth.get_user_id(request.user)
+            user = {"username": username}
+            user_id = request.registry["auth"].get_user_id(user)
 
             if user_id is None:
                 raise HTTPNotFound()
 
-            if not self.reset.verify_reset_code(request.user, key):
+            if not self.reset.verify_reset_code(user, key):
                 log_cef('Invalid Reset Code submitted', 5, request.environ,
-                        self.app.config, request.user['username'],
+                        request.registry.settings, username,
                         'InvalidResetCode', submitedtoken=key)
 
                 raise HTTPJsonBadRequest(ERROR_INVALID_RESET_CODE)
 
-            if not self.auth.admin_update_password(request.user,
+            if not request.registry["auth"].admin_update_password(user,
                                                    new_password, key):
                 raise HTTPInternalServerError('Password change failed '
                                               'unexpectedly.')
         else:
-            # classical auth
-            self.app.auth.authenticate_user(request, self.app.config,
-                                            request.user['username'])
+            # classical auth, authenticate by accessing request.user.
+            user = request.user
 
-            if request.user['userid'] is None:
+            if user['userid'] is None:
                 log_cef('User Authentication Failed', 5, request.environ,
-                        self.app.config, request.user['username'],
+                        request.registry.settings, username,
                         AUTH_FAILURE)
                 raise HTTPUnauthorized()
 
-            if not self.auth.update_password(request.user,
-                                             request.user_password,
-                                             new_password):
+            if not request.registry["auth"].update_password(user,
+                                                            user["password"],
+                                                            new_password):
                 raise HTTPInternalServerError('Password change failed '
                                               'unexpectedly.')
 
@@ -282,12 +294,14 @@ class UserController(object):
 
     def password_reset_form(self, request, **kw):
         """Returns a form for resetting the password"""
+        if not kw:
+            kw = request.GET
         if 'key' in kw or 'error' in kw:
             # we have a key, let's display the key controlling form
-            return render_mako('password_reset_form.mako', **kw)
+            return resp_render_mako('password_reset_form.mako', **kw)
         elif not request.POST and not request.GET:
             # asking for the first time
-            return render_mako('password_ask_reset_form.mako')
+            return resp_render_mako('password_ask_reset_form.mako')
 
         raise HTTPBadRequest()
 
@@ -308,13 +322,14 @@ class UserController(object):
         if request.POST.keys() == ['username']:
             # setting up a password reset
             # XXX add support for captcha here via **data
-            request.user = User(user_name)
+            request.matchdict = {"username": user_name}
             try:
                 self.password_reset(request)
             except (HTTPServiceUnavailable, HTTPJsonBadRequest), e:
-                return render_mako('password_failure.mako', error=e.detail)
+                return resp_render_mako('password_failure.mako',
+                                        error=e.detail)
             else:
-                return render_mako('password_key_sent.mako')
+                return resp_render_mako('password_key_sent.mako')
 
             raise HTTPJsonBadRequest()
 
@@ -332,7 +347,7 @@ class UserController(object):
                                 'the link you used.')
 
         user = User(user_name)
-        user_id = self.auth.get_user_id(user)
+        user_id = request.registry["auth"].get_user_id(user)
         if user_id is None:
             return self._repost(request, 'We are unable to locate your '
                                 'account')
@@ -355,30 +370,32 @@ class UserController(object):
                                 'Please request a new key.')
 
         # everything looks fine
-        if not self.auth.admin_update_password(user, 'password', password):
+        if not request.registry["auth"].admin_update_password(user, 'password',
+                                                              password):
             return self._repost(request, 'Password change failed '
                                          'unexpectedly.')
 
         self.reset.clear_reset_code(user)
-        return render_mako('password_changed.mako')
+        return resp_render_mako('password_changed.mako')
 
     def delete_user(self, request):
         """Deletes the user."""
 
-        if not hasattr(request, 'user_password'):
+        if not request.user or "password" not in request.user:
             raise HTTPBadRequest()
 
-        res = self.auth.delete_user(request.user, request.user_password)
+        res = request.registry["auth"].delete_user(request.user,
+                                                   request.user["password"])
         return text_response(int(res))
 
     def _captcha(self):
         """Return HTML string for inserting recaptcha into a form."""
-        return captcha.displayhtml(self.app.config['captcha.public_key'],
-                                   use_ssl=self.app.config['captcha.use_ssl'])
+        return captcha.displayhtml(self._captcha_public_key,
+                                   self._captcha_use_ssl)
 
     def captcha_form(self, request):
         """Renders the captcha form"""
-        if not self.app.config['captcha.use']:
+        if not request.registry.settings.get('captcha.use'):
             raise HTTPNotFound('No captcha configured')
 
-        return render_mako('captcha.mako', captcha=self._captcha())
+        return resp_render_mako('captcha.mako', captcha=self._captcha())

@@ -20,7 +20,7 @@ version = _VERSION.findall(spec)[0]
 
 entry_points = """
 [paste.app_factory]
-main = syncreg.wsgiapp:make_app
+main = syncreg:main
 
 [paste.app_install]
 main = paste.script.appinstall:Installer

@@ -16,13 +16,13 @@ from recaptcha.client import captcha
 
 from syncreg.tests.functional import support
 from services.user import User
-from services.tests.support import get_app
 from services.user import extract_username
-from services.exceptions import BackendError
 from services.respcodes import (ERROR_INVALID_USER, ERROR_NO_EMAIL_ADDRESS,
                                 ERROR_USERNAME_EMAIL_MISMATCH,
                                 ERROR_INVALID_CAPTCHA, ERROR_MISSING_PASSWORD,
                                 ERROR_WEAK_PASSWORD, ERROR_INVALID_WRITE)
+
+from mozsvc.exceptions import BackendError
 
 
 class FakeSMTP(object):
@@ -91,13 +91,11 @@ class TestUser(support.TestWsgiApp):
             raise AssertionError()
 
         # now calling with the right user, but he has no email
-        app = get_app(self.app)
-
         def _get_user_info(*args):
             return 'ok', None
 
-        old = app.auth.backend.get_user_info
-        app.auth.backend.get_user_info = _get_user_info
+        old = self.auth.get_user_info
+        self.auth.get_user_info = _get_user_info
 
         try:
             self.app.get(self.root + '/password_reset?%s' % captcha)
@@ -106,7 +104,7 @@ class TestUser(support.TestWsgiApp):
         else:
             raise AssertionError()
         finally:
-            app.auth.backend.get_user_info = old
+            self.auth.get_user_info = old
 
         # now a legitimate call
         res = self.app.get(self.root + '/password_reset?%s' % captcha)
@@ -130,10 +128,9 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue('Password not provided' in res)
 
         # let's ask via the web form now
-        app = get_app(self.app)
         # the Python web form does not support captcha
-        old = app.config['captcha.use']
-        app.config['captcha.use'] = False
+        old = self.config.registry.settings['captcha.use']
+        self.config.registry.settings['captcha.use'] = False
         try:
             res = self.app.get('/weave-password-reset')
             res.form['username'].value = self.user_name
@@ -141,7 +138,7 @@ class TestUser(support.TestWsgiApp):
             self.assertTrue('next 6 hours' in res)
             self.assertEquals(len(FakeSMTP.msgs), 2)
         finally:
-            app.config['captcha.use'] = old
+            self.config.registry.settings['captcha.use'] = old
 
         # let's visit the link in the email
         msg = message_from_string(FakeSMTP.msgs[1][2]).get_payload()
@@ -197,11 +194,10 @@ class TestUser(support.TestWsgiApp):
         self.assertTrue('Password successfully changed' in res)
 
     def test_reset_email(self):
-        app = get_app(self.app)
         # let's ask via the web form now
         # the Python web form does not support captcha
-        old = app.config['captcha.use']
-        app.config['captcha.use'] = False
+        old = self.config.registry.settings['captcha.use']
+        self.config.registry.settings['captcha.use'] = False
         try:
             # let's try the reset process with an email
             user_name = extract_username('tarek@mozilla.com')
@@ -226,7 +222,7 @@ class TestUser(support.TestWsgiApp):
             res = res.form.submit()
             self.assertTrue('Password successfully changed' in res)
         finally:
-            app.config['captcha.use'] = old
+            self.config.registry.settings['captcha.use'] = old
 
     def test_force_reset(self):
         captcha = 'captcha-challenge=x&captcha-response=y'
@@ -234,12 +230,10 @@ class TestUser(support.TestWsgiApp):
         self.assertEquals(res.body, 'success')
         self.assertEquals(len(FakeSMTP.msgs), 1)
 
-        app = get_app(self.app)
-
         # let's ask via the web form now
         # the Python web form does not support captcha
-        old = app.config['captcha.use']
-        app.config['captcha.use'] = False
+        old = self.config.registry.settings['captcha.use']
+        self.config.registry.settings['captcha.use'] = False
         try:
             res = self.app.get('/weave-password-reset')
             res.form['username'].value = self.user_name
@@ -247,11 +241,11 @@ class TestUser(support.TestWsgiApp):
             self.assertTrue('next 6 hours' in res)
             self.assertEquals(len(FakeSMTP.msgs), 2)
         finally:
-            app.config['captcha.use'] = old
+            self.config.registry.settings['captcha.use'] = old
 
         # let's cancel via the API
         url = self.root + '/password_reset'
-        if app.config['captcha.use']:
+        if self.config.registry.settings['captcha.use']:
             url += '?captcha-challenge=xxx&captcha-response=xxx'
 
         res = self.app.delete(url)
@@ -396,17 +390,16 @@ class TestUser(support.TestWsgiApp):
 
     def test_recaptcha(self):
         # make sure the captcha is rendered when needed
-        if not get_app(self.app).config['captcha.use']:
+        if not self.config.registry.settings['captcha.use']:
             self.app.get('/misc/1.0/captcha_html', status=404)
         else:
             self.app.get('/misc/1.0/captcha_html', status=200)
 
     def esting_proxy(self):
         # XXX crazy dive into the middleware stack
-        app = get_app(self.app)
-        app.config['auth.proxy'] = True
-        app.config['auth.proxy_scheme'] = 'http'
-        app.config['auth.proxy_location'] = 'localhost:5000'
+        self.config.registry.settings['auth.proxy'] = True
+        self.config.registry.settings['auth.proxy_scheme'] = 'http'
+        self.config.registry.settings['auth.proxy_location'] = 'localhost:5000'
 
         # these tests should work fine with a proxy config
         res = self.app.get('/user/1.0/randomdude')
@@ -416,29 +409,28 @@ class TestUser(support.TestWsgiApp):
         self.test_create_user('randomdude')
 
     def test_fallback_node(self):
-        app = get_app(self.app)
-        proxy = app.controllers['user'].fallback_node = 'http://myhappy/proxy/'
+        proxy = 'http://myhappy/proxy/'
+        self.config.registry["syncreg.controller.user"].fallback_node = proxy
         url = '/user/1.0/%s/node/weave' % self.user_name
         res = self.app.get(url)
         self.assertEqual(res.body, proxy)
 
-        app.controllers['user'].fallback_node = None
+        self.config.registry["syncreg.controller.user"].fallback_node = None
         res = self.app.get(url)
         self.assertEqual(res.body, 'null')
 
     def test_prevent_bad_node(self):
-        app = get_app(self.app)
-        old_auth = app.auth.backend.get_user_id
+        old_auth = self.auth.get_user_id
 
         def _get_id(*args):
             raise BackendError()
 
-        app.auth.backend.get_user_id = _get_id
+        self.auth.get_user_id = _get_id
         try:
             self.app.get('/user/1.0/%s/node/weave' % self.user_name,
                          status=503)
         finally:
-            app.auth.backend.get_user_id = old_auth
+            self.auth.get_user_id = old_auth
 
     def test_unkown_user_node(self):
         # make sure asking for a node of an unexisting user leads to a 404
@@ -475,8 +467,7 @@ class TestUser(support.TestWsgiApp):
         user_url = '/user/1.0/%s' % name
 
         # we want the captcha to fail
-        app = get_app(self.app)
-        app.config['captcha.use'] = True
+        self.config.registry.settings['captcha.use'] = True
 
         def _failed(self, *args, **kw):
             return FakeCaptchaResponse(False)
