@@ -55,7 +55,6 @@ class TestWsgiApp(unittest.TestCase):
     def setUp(self):
         # loading the app
         self.appdir, self.config, self.auth = initenv()
-        self.sqlfile = self.auth.sqluri.split('sqlite:///')[-1]
         self.app = TestApp(make_app(self.config))
 
         # adding a user if needed
@@ -95,11 +94,18 @@ class TestWsgiApp(unittest.TestCase):
         if os.path.exists(cef_logs):
             os.remove(cef_logs)
 
-        if os.path.exists(self.sqlfile):
-            os.remove(self.sqlfile)
-        else:
+        # Clear out the database.
+        if "sqlite" not in self.auth.sqluri:
             self.auth._engine.execute('truncate users')
             self.auth._engine.execute('truncate collections')
             self.auth._engine.execute('truncate wbo')
             if self.auth.get_name() == 'ldap':
                 self.auth._engine.execute('truncate available_nodes')
+
+        # Remove any sqlite db files that we created.
+        for key, value in self.config.iteritems():
+            if not key.endswith(".sqluri"):
+                continue
+            sqlfile = value.split('sqlite:///')[-1]
+            if os.path.exists(sqlfile):
+                os.remove(sqlfile)
