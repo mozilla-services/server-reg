@@ -115,12 +115,9 @@ class TestUser(support.TestWsgiApp):
     def test_password_reset_direct(self):
         # trying to call password reset with an unknown user
         captcha = 'captcha-challenge=x&captcha-response=y'
-        try:
-            self.app.get('/user/1.0/a/password_reset?%s' % captcha)
-        except AppError, e:
-            self.assertTrue(e.args[0].endswith(str(ERROR_INVALID_USER)))
-        else:
-            raise AssertionError()
+        res = self.app.get('/user/1.0/a/password_reset?%s' % captcha,
+                           status=400)
+        self.assertEquals(res.json, ERROR_INVALID_USER)
 
         # now calling with the right user, but he has no email
         app = get_app(self.app)
@@ -130,13 +127,10 @@ class TestUser(support.TestWsgiApp):
 
         old = app.auth.backend.get_user_info
         app.auth.backend.get_user_info = _get_user_info
-
         try:
-            self.app.get(self.root + '/password_reset?%s' % captcha)
-        except AppError, e:
-            self.assertTrue(e.args[0].endswith(str(ERROR_NO_EMAIL_ADDRESS)))
-        else:
-            raise AssertionError()
+            res = self.app.get(self.root + '/password_reset?%s' % captcha,
+                               status=400)
+            self.assertEquals(res.json, ERROR_NO_EMAIL_ADDRESS)
         finally:
             app.auth.backend.get_user_info = old
 
